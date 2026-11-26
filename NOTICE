@@ -1,0 +1,18 @@
+Lume Gallery
+Copyright 2026 Lume Gallery contributors
+
+Original application source is licensed under Apache-2.0. The license grants
+no trademark rights. Third-party components retain their respective licenses.
+
+Packaged dependencies include AndroidX/Media3 (Apache-2.0), MediaPipe Tasks
+(Apache-2.0) and Microsoft ONNX Runtime (MIT), with their transitive components.
+Dependency artifacts retain their supplied notices. Model weights are downloaded
+separately, not committed. See THIRD-PARTY-MODELS.md and ai-models.json.
+
+Modification: Lume's build-time ASM transform changes MediaPipe's stats factory
+to its upstream no-op logger, replacing remote usage logging. No inference or
+model code is changed. Vendor telemetry services are removed from the manifest.
+
+https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE
+https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+https://android.googlesource.com/platform/frameworks/support/+/androidx-main/LICENSE.txt

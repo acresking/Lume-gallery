@@ -1,0 +1,157 @@
+package il.luma.gallery;
+
+import android.Manifest;
+import android.app.*;
+import android.content.*;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.widget.*;
+import java.io.*;
+import java.util.*;
+import org.json.*;
+
+/**
+ * Local automatic and manually requested organisation. Names are user supplied; GPS comes only from
+ * image EXIF.
+ */
+final class PeoplePlaces {
+  final ModernActivity a;
+
+  PeoplePlaces(ModernActivity a) {
+    this.a = a;
+  }
+
+  void open(String kind) {
+    final AlertDialog[] opened = {null};
+    LinearLayout c = a.column();
+    c.addView(a.text(kind.equals("person") ? "אנשים" : "מקומות", 25));
+    c.addView(
+        a.text(
+            kind.equals("person")
+                ? "קבוצות לפי דמיון בין פנים, לא זיהוי זהות. אפשר לתת שם, לשנות ולתקן קבוצה."
+                : "רק תמונות עם מיקום GPS בקובץ. אין מעקב אחר מיקום הטלפון ואין שליחת מיקומים"
+                    + " לשרת.",
+            13));
+    a.action(
+        c,
+        kind.equals("person") ? "סרוק פנים לקבוצות" : "סרוק נתוני מיקום",
+        () -> {
+          if (opened[0] != null) opened[0].dismiss();
+          if (kind.equals("person")) scanPeople();
+          else scanPlaces();
+        });
+    c.addView(a.text(AutoOrganizeJob.status(a), 12));
+    JSONArray albums = a.personalAlbums();
+    LinearLayout row = null;
+    int cells = 0;
+    for (int i = 0; i < albums.length(); i++) {
+      JSONObject item = albums.optJSONObject(i);
+      if (item == null || !item.optString("kind").equals(kind)) continue;
+      if (cells % 2 == 0) {
+        row = a.row();
+        c.addView(row);
+      }
+      String name = item.optString("name");
+      int count = item.optJSONArray("items") == null ? 0 : item.optJSONArray("items").length();
+      LinearLayout cell = a.column();
+      cell.setGravity(android.view.Gravity.CENTER);
+      cell.setPadding(a.dp(10), a.dp(14), a.dp(10), a.dp(14));
+      ImageView cover = new ImageView(a);
+      cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+      android.graphics.drawable.GradientDrawable shape = a.rounded(a.card, 24);
+      if (kind.equals("person")) shape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+      cover.setBackground(shape);
+      cover.setClipToOutline(true);
+      Bitmap faceCover = kind.equals("person") ? PrivateData.cover(a, item.optString("id")) : null;
+      if (faceCover != null) cover.setImageBitmap(faceCover);
+      else
+        cover.setImageDrawable(
+            new GalleryIcons(kind.equals("person") ? "people" : "place", a.accent));
+      cell.addView(cover, new LinearLayout.LayoutParams(a.dp(104), a.dp(104)));
+      TextView title = a.label(name, 15, a.ink, true);
+      title.setGravity(android.view.Gravity.CENTER);
+      title.setMaxLines(2);
+      cell.addView(title);
+      TextView subtitle = a.label(count + " תמונות", 12, a.ink, false);
+      subtitle.setGravity(android.view.Gravity.CENTER);
+      cell.addView(subtitle);
+      cell.setOnClickListener(
+          v -> {
+            if (opened[0] != null) opened[0].dismiss();
+            a.openNamedAlbum(name);
+          });
+      row.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
+      cells++;
+    }
+    if (cells % 2 == 1)
+      row.addView(new android.view.View(a), new LinearLayout.LayoutParams(0, 1, 1));
+    a.action(
+        c,
+        kind.equals("person") ? "אפס קבוצות פנים ונתוני קיבוץ" : "אפס מקומות",
+        () ->
+            new PrivacyDialogBuilder(a)
+                .setMessage("למחוק קבוצות ולכבות את הסידור האוטומטי שלהן? קובצי התמונות לא ישתנו.")
+                .setPositiveButton(
+                    "אפס קבוצות",
+                    (d, n) -> {
+                      if (OrganizeEngine.RUNNING.get() || a.ai.busy) {
+                        a.message("סריקה פעילה", "עצור את הסריקה או המתן לסיומה לפני איפוס קבוצות");
+                        return;
+                      }
+                      JSONArray current = a.personalAlbums();
+                      for (int i = current.length() - 1; i >= 0; i--)
+                        if (current.optJSONObject(i).optString("kind").equals(kind))
+                          current.remove(i);
+                      var edit =
+                          a.prefs
+                              .edit()
+                              .putString("personalAlbums", PrivateData.encrypt(current.toString()));
+                      if (kind.equals("person")) {
+                        edit.remove("faceProfiles")
+                            .remove("peopleScanned")
+                            .putBoolean("autoPeople", false);
+                        PrivateData.clearCovers(a);
+                      } else edit.remove("placesScanned").putBoolean("autoPlaces", false);
+                      edit.apply();
+                      AutoOrganizeJob.schedule(a);
+                      if (opened[0] != null) opened[0].dismiss();
+                      a.render();
+                    })
+                .setNegativeButton("ביטול", null)
+                .show());
+    ScrollView scroll = new ScrollView(a);
+    scroll.addView(c);
+    opened[0] = new PrivacyDialogBuilder(a).setView(scroll).setPositiveButton("סגירה", null).show();
+  }
+
+  void scanPeople() {
+    if (!a.ai.require("faces") || !a.ai.require("facegroup")) return;
+    scan(true, false);
+  }
+
+  void scanPlaces() {
+    if (a.checkSelfPermission(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        != PackageManager.PERMISSION_GRANTED) {
+      a.requestPermissions(new String[] {Manifest.permission.ACCESS_MEDIA_LOCATION}, 44);
+      return;
+    }
+    scan(false, true);
+  }
+
+  void scan(boolean faces, boolean places) {
+    a.ai.task(
+        faces ? "מקבץ פנים במכשיר" : "קורא מיקום מתמונות",
+        () -> {
+          OrganizeEngine.Result result =
+              OrganizeEngine.run(a, a.ai.cancel, a.prefs.getInt("aiBatch", 200), faces, places);
+          a.ai.ui(
+              () -> {
+                a.render();
+                a.message(
+                    "סידור הגלריה",
+                    result.message + "\nהקיבוץ הוא הערכה; אפשר לתקן שמות וחברות באלבום.");
+                AutoOrganizeJob.schedule(a);
+              });
+        });
+  }
+}

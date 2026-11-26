@@ -1,0 +1,29 @@
+{
+  "repair": {
+    "shape": [
+      1,
+      3,
+      256,
+      256
+    ],
+    "seconds": 1.0244193077087402,
+    "unmasked_max_error": 0.0,
+    "masked_finite": true
+  },
+  "facegroup": {
+    "shape": [
+      1,
+      128
+    ],
+    "finite": true
+  },
+  "enhance": {
+    "shape": [
+      1,
+      1,
+      672,
+      672
+    ],
+    "finite": true
+  }
+}

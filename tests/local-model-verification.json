@@ -1,0 +1,41 @@
+{
+  "classify": [
+    {
+      "label": "boathouse",
+      "score": 0.3203125
+    },
+    {
+      "label": "lakeside",
+      "score": 0.22265625
+    },
+    {
+      "label": "valley",
+      "score": 0.1171875
+    },
+    {
+      "label": "alp",
+      "score": 0.08203125
+    },
+    {
+      "label": "dam",
+      "score": 0.0625
+    }
+  ],
+  "similar": {
+    "dimensions": 1024,
+    "self_cosine": 1.0
+  },
+  "portrait": [
+    {
+      "shape": [
+        1024,
+        820
+      ],
+      "mean": 0.5072433948516846,
+      "center": 1.0
+    }
+  ],
+  "faces": {
+    "count": 1
+  }
+}
