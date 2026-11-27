@@ -176,14 +176,15 @@ public class VaultAndLocationTest {
       GridLayoutManager manager = (GridLayoutManager) grid.getLayoutManager();
       PinchGrid pinch = new PinchGrid(a, grid);
       pinch.change(1);
-      assertEquals(4, manager.getSpanCount());
-      assertEquals(4, a.prefs.getInt("columns", 0));
-      assertEquals(4, manager.getSpanSizeLookup().getSpanSize(0));
+      assertEquals(5, manager.getSpanCount());
+      assertEquals(5, a.prefs.getInt("columns", 0));
+      assertEquals(5, manager.getSpanSizeLookup().getSpanSize(0));
       pinch.change(1);
       pinch.change(1);
-      assertEquals("months", a.viewMode);
-      assertTrue(grid.getAdapter() instanceof CalendarOverview);
-      assertEquals(2, manager.getSpanCount());
+      assertEquals("photos", a.viewMode);
+      assertEquals(15, a.prefs.getInt("columns", 0));
+      assertFalse(grid.getAdapter() instanceof CalendarOverview);
+      assertEquals(15, manager.getSpanCount());
       for (int i = 0; i < 5; i++) pinch.change(-1);
       assertEquals(2, manager.getSpanCount());
     }

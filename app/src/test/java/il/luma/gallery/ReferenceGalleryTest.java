@@ -16,6 +16,7 @@ import org.robolectric.annotation.*;
 import org.robolectric.shadows.ShadowDialog;
 
 @RunWith(RobolectricTestRunner.class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = 30, qualifiers = "w320dp-h640dp-mdpi")
 public class ReferenceGalleryTest {
   MainActivity.Media photo(int id) {
@@ -111,7 +112,7 @@ public class ReferenceGalleryTest {
       assertNotEquals(Color.BLACK, a.bg);
       a.prefs.edit().putBoolean("light", true).apply();
       a.applyColors();
-      assertEquals(0xfff7f7fc, a.bg);
+      assertEquals(0xfffafafa, a.bg);
     }
   }
 

@@ -90,3 +90,13 @@ Pinch density changes must keep the current scroll anchor and saved column prefe
 - Maps stay inside Lume. Keep attribution visible, fetch only the visible viewport, disclose network region requests and support map-network opt-out. Marker data/photos remain local. Do not navigate to an external map app.
 - Subject extraction always requires a preview with erase/restore controls before save/share. Disclose touching-person limits. A transparent PNG is an importable sticker asset, not a promise of native WhatsApp sticker delivery.
 - Automatic people grouping remains opt-out, incremental and local. Honor existing charging choices and battery limits; never claim that unknown personal names or perfect identities are inferred.
+
+
+## v13 photo viewport rules — take precedence over earlier fixed toolbars
+
+- The photo feed owns its optional chrome as a full-span RecyclerView item. Never mount memory carousels or multiple filter rows above the weighted photo list. Default memory UI is a single expand action; expanded content must also scroll away.
+- Keep one 48dp control row with a filter sheet, date jump and optional memory toggle. Filters/grouping remain in the title overflow after chrome scrolls offscreen. Do not remove capabilities to reduce visual clutter.
+- Reference pinch presents all photos in 2/3/5-column grids, 9-column month mosaics and 15-column year mosaics. Do not automatically replace these with cover cards. Cover-card modes remain explicit alternatives.
+- Pinch feedback transforms drawing, not touch coordinates or view alpha. Preserve the focused photo vertically, morph stable cells toward their new bounds, cancel stale morphs during recycling and honor reduced motion.
+- Dense grids use smaller thumbnail requests; cancel stale requests and upgrade quality when zooming in. Never overwrite a larger cached image with a late compact result. Keep all date/group/filter membership based on original media.
+- First-video styling uses a restrained black photo background, compact header/dock and minimal borders. Preserve an explicitly chosen light/system theme. Never commit reference frames or private media.

@@ -1,33 +1,32 @@
-# Lume Gallery 12.0.0 — verification
+# Lume Gallery 13.0.0 — verification
 
 ## Changes checked
 
-Popup dialogs use shared rounded sheet styling, light/dark themes, RTL layout, motion preference and stacked long action labels. Caller OnShow/choice listeners remain intact. Photo and video studios share larger controls and a clear primary copy-export action; video preview adds explicit play/pause and mute feedback. Existing editing/export algorithms and the original files are preserved.
+The first private reference recording was re-inspected, including the initial dense-grid pinch sequence. The implementation now keeps all photos visible in 2/3/5-column grids, 9-column month mosaics and 15-column year mosaics rather than automatically replacing them with cover cards. Explicit cover-card modes remain available.
 
-Favorites immediately change persisted membership, label, selected state and icon fill/color. Pinch density now transitions into actual month/year cover-card presentations derived from the filtered scope; card taps move toward the selected date. Manual view-type/density settings, selection and date navigation remain available.
+Photo chrome is a full-span item inside RecyclerView, not permanent rows above it. The default is one compact control row and a memory expand action. Expanded memories also scroll away. The header/dock are more compact and the default unconfigured appearance follows the black reference style; explicitly selected light/system preferences remain intact. Filters, date jumps, grouping, selection and scope are retained; filters also remain reachable from title overflow.
 
-Maps use native osmdroid 6.1.20 and HTTPS OpenStreetMap tiles inside the app. No external-map intent is sent. The visible map region and IP reach the tile provider; image data and marker filenames stay local. Attribution links, app User-Agent, bounded private cache and a network opt-out are configured. There is no live location permission or bulk tile download. Additional markers read GPS from up to 500 photos in the current filtered collection, preserving archive/filter scope.
-
-People grouping can run in small foreground batches after model setup, with existing Android jobs as fallback. It observes user toggles, explicit charging preference and battery constraints; the open people list refreshes from encrypted metadata changes. A one-time existing Lume AI bundle installation is required, without a new remote inference model.
-
-Holding an image point triggers local portrait segmentation and connected-component selection near that point. An erase/restore preview is mandatory before explicit PNG save/share. Sticker output is a transparent 512x512 PNG with white outline. Source files/EXIF are not modified or copied into the output. Touching people may stay in the same component and require manual correction; this is not a per-person instance-segmentation model or native WhatsApp sticker pack integration.
+Pinch feedback scales the canvas while keeping touch bounds stable, anchors the focused photo vertically and morphs shared cells into new bounds. It does not fade the whole grid. Recycling cancels stale morph transforms and thumbnail requests. Dense thumbnails use smaller requests, upgrade on zoom-in and cannot replace a larger cached result with a late small result. Density/grouping are remembered across a cold Activity start.
 
 ## Results
 
-- Release build and all 76 app tests passed. Android Lint: zero errors, 39 warnings. New advisories include the deliberately programmatic SubjectBoard constructor and existing localization/redraw/touch recommendations.
-- Fifteen added tests cover favorite toggling/persistence and filled pixels; real calendar presentation transitions/counts/scopes; cutout component isolation and known touching-person behavior; transparent sticker dimensions; held-point letterboxing; erase/restore source preservation and brush selection; native map center/resource closure without an external intent; retained dialog callbacks/stacked long actions; automatic-people setup; and narrow/large-font photo/video/subject controls. The earlier grid-limit test was updated for the intended month-overview boundary. All prior tests pass.
-- Editor previews use synthetic sample media only. No user recording frames, faces, locations, account identifiers or signing keys are committed.
-- Signature verified against the prior certificate. ZIP 16KB alignment and all three ARM64 ELF LOAD alignments passed. Packaged DEX still invokes MediaPipe's upstream DummyLogger instead of remote ProtoLogger.
+- Release build and all 88 app tests passed. Android Lint: zero errors and 39 warnings.
+- Twelve added tests cover viewport share and scrolling chrome; explicit memory expansion and expanded chrome scrolling; real-photo month/year mosaics; density boundaries; vertical focal anchoring; canvas-only feedback without alpha/touch-bound changes; filtered scope and manual covers; explicit light preference; cancellation of recycled/rebound thumbnails; cache resolution protection; cold-start grouping persistence; and stale morph reset on rebind.
+- The compact-layout fixture checks that the grid exceeds 72% of a 320x720dp viewport and the collapsed chrome is at most 56dp, then verifies it is absent after scrolling. Expanded chrome is separately checked to scroll out of view. These are narrow-screen fixtures, not a universal percentage guarantee for every accessibility/font/window setting.
+- Earlier assertions for fixed filter rows, the header adapter offset, cover-card pinch boundaries and the former purple-tinted light background were updated for the intentional UI changes. The prior functional tests also pass.
+- Test classes run in isolated JVMs; the mixed EXIF suite uses native graphics consistently to avoid Robolectric 4.14.1 font-filesystem initialization interference. No tests were disabled or skipped. Upstream issue: https://github.com/robolectric/robolectric/issues/10116 .
+- Signature verified against the previous certificate. ZIP alignment passed with 16KB pages, and all three ARM64 ELF LOAD alignments are at least 16KB. Packaged DEX still invokes MediaPipe's upstream DummyLogger rather than remote ProtoLogger.
+- Android previews use synthetic sample media. The private reference recording and all extracted frames remain outside the source repository; no user faces, media, locations, accounts or signing keys are committed.
 
 ## Artifact
 
-File: `LumeGallery-v12.0.0.apk`  
-Bytes: 134525770  
-SHA-256: `d0c61312f30b4553b1fb6d11d8542438d2ea54e5cc7f45a9cd848275ad68d9cf`  
+File: `LumeGallery-v13.0.0.apk`  
+Bytes: 134542158  
+SHA-256: `43af139cc1375b93a5fa8fffbaa3d9c8d840b27c6ada0b166f9db167dbe3b95c`  
 Certificate SHA-256: `79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7`
 
 ## Limits
 
-No physical-device test is claimed. Hardware inference quality/performance, real gesture feel, map tile availability, Android background scheduling, video codecs and MediaStore export/sharing need phone testing. The tests exercise synthetic masks and UI/state, not a full on-device segmentation/face-inference benchmark. Map tests disable network; successful network tile delivery is not claimed from unit tests. osmdroid is pinned and its source/attribution links are in NOTICE.
+No physical-device test is claimed. Real OnePlus gesture feel, 165Hz frame pacing, long-library throughput, provider cancellation, OEM authentication/background scheduling, codecs, hardware AI inference and MediaStore export require phone testing. Focal anchoring is vertical; horizontal positions follow the new grid column arrangement. Cell morphs are capped at 128 visible shared cells for bounded animation work. This is reference-inspired behavior, not proprietary OEM animation code or a guarantee of identical physics.
 
-People require installed models and permissions; Android controls background timing. Preview masks can merge touching people or omit disconnected body regions; users must inspect/correct before sharing. PNG assets may need import into a sticker-capable app and are not guaranteed to arrive as native stickers in every recipient app. Existing vault credential and temporary private-preview-cache limitations remain documented in PRIVACY.md.
+No new model, network service or permission was introduced. Existing local-AI setup, subject-mask correction limits, map tile privacy and vault credential/cache behavior remain documented in PRIVACY.md. Original media, archive membership, face groups, cleanup rules and other features are not changed by presentation controls.

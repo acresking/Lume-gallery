@@ -94,7 +94,7 @@ public class GalleryExperienceTest {
       assertEquals(0, a.toggleDateGroup(day));
       assertEquals(3, a.toggleVisibleSelection());
       assertEquals(0, a.toggleVisibleSelection());
-      assertEquals(2, a.nearestDatePosition(first.date));
+      assertEquals(3, a.nearestDatePosition(first.date));
     }
   }
 
@@ -113,7 +113,7 @@ public class GalleryExperienceTest {
       a.root.layout(0, 0, 320, 640);
       ViewGroup row = (ViewGroup) description(a.body, "קיבוץ תאריך ופעולות גלריה");
       assertNotNull(row);
-      assertTrue(row.getChildAt(0) instanceof HorizontalScrollView);
+      assertTrue(row.getChildAt(0) instanceof android.widget.TextView);
       for (int i = 0; i < row.getChildCount(); i++) {
         View child = row.getChildAt(i);
         assertTrue(child.getLeft() >= 0);
@@ -123,7 +123,7 @@ public class GalleryExperienceTest {
               child.getLeft() < row.getChildAt(j).getRight()
                   && row.getChildAt(j).getLeft() < child.getRight());
       }
-      assertTrue(description(a.body, "סינון בתוך האוסף הנוכחי") instanceof HorizontalScrollView);
+      assertTrue(description(a.body, "סינון בתוך האוסף הנוכחי") instanceof android.widget.TextView);
     }
   }
 

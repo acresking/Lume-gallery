@@ -189,7 +189,12 @@ public class CustomizationExperienceTest {
       viewer.dismiss();
       a.prefs.edit().putBoolean("memoriesPhotos", true).apply();
       a.render();
-      assertTrue(containsText(a.root, "רגעים מהספרייה"));
+      a.root.measure(
+          View.MeasureSpec.makeMeasureSpec(320, View.MeasureSpec.EXACTLY),
+          View.MeasureSpec.makeMeasureSpec(640, View.MeasureSpec.EXACTLY));
+      a.root.layout(0, 0, 320, 640);
+      assertNotNull(find(a.root, "הרחבת רגעים"));
+      assertFalse(containsText(a.root, "רגעים מהספרייה"));
     }
   }
 

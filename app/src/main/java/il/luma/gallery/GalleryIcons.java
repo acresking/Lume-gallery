@@ -38,6 +38,10 @@ final class GalleryIcons extends Drawable {
         "M9,3 L15,3 L16,6 L19,7 L22,11 L20,14 L20,17 L16,20 L13,20 L10,22 L6,19 L6,16 L3,13 L4,8"
             + " L7,7 Z M12,8 A4,4 0,1 0,12,16 A4,4 0,1 0,12,8");
     PATHS.put("search", "M10.5,3 A7.5,7.5 0,1 0,10.5,18 A7.5,7.5 0,1 0,10.5,3 M16,16 L22,22");
+    PATHS.put(
+        "memories",
+        "M4,5 L18,5 Q21,5 21,8 L21,19 Q21,21 19,21 L5,21 Q3,21 3,19 L3,8 M7,2 L17,2 M6,16 L10,12"
+            + " L14,16 L17,13 L21,17 M15,9 L15.01,9");
     PATHS.put("copy", "M8,3 L20,3 L20,17 L8,17 Z M4,7 L4,21 L16,21");
     PATHS.put("plus", "M12,5 L12,19 M5,12 L19,12");
     PATHS.put("close", "M6,6 L18,18 M18,6 L6,18");

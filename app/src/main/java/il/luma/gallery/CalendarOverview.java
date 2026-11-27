@@ -50,7 +50,17 @@ final class CalendarOverview extends RecyclerView.Adapter<CalendarOverview.Holde
   }
 
   @Override
+  public int getItemViewType(int p) {
+    return host.galleryChrome != null && p == 0 ? 1 : 0;
+  }
+
+  @Override
   public Holder onCreateViewHolder(ViewGroup parent, int type) {
+    if (type == 1) {
+      FrameLayout frame = new FrameLayout(host);
+      frame.setLayoutParams(new RecyclerView.LayoutParams(-1, -2));
+      return new Holder(frame);
+    }
     SquareTile tile = new SquareTile(host);
     RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(-1, -2);
     lp.setMargins(host.dp(5), host.dp(5), host.dp(5), host.dp(5));
@@ -62,8 +72,21 @@ final class CalendarOverview extends RecyclerView.Adapter<CalendarOverview.Holde
 
   @Override
   public void onBindViewHolder(Holder h, int p) {
+    GalleryGrid.resetCell(h.itemView);
+    if (host.galleryChrome != null) {
+      if (p == 0) {
+        FrameLayout frame = (FrameLayout) h.itemView;
+        frame.removeAllViews();
+        if (host.galleryChrome.getParent() instanceof ViewGroup)
+          ((ViewGroup) host.galleryChrome.getParent()).removeView(host.galleryChrome);
+        frame.addView(host.galleryChrome, new FrameLayout.LayoutParams(-1, -2));
+        return;
+      }
+      p--;
+    }
     Group g = groups.get(p);
     FrameLayout tile = (FrameLayout) h.itemView;
+    host.cancelThumbnails(tile);
     tile.removeAllViews();
     ImageView image = new ImageView(host);
     image.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -89,7 +112,7 @@ final class CalendarOverview extends RecyclerView.Adapter<CalendarOverview.Holde
 
   @Override
   public int getItemCount() {
-    return groups.size();
+    return groups.size() + (host.galleryChrome == null ? 0 : 1);
   }
 
   int nearest(long date) {
@@ -102,6 +125,6 @@ final class CalendarOverview extends RecyclerView.Adapter<CalendarOverview.Holde
         best = i;
       }
     }
-    return best;
+    return best + (host.galleryChrome == null ? 0 : 1);
   }
 }
