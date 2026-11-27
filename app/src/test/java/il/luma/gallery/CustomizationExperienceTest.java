@@ -76,7 +76,10 @@ public class CustomizationExperienceTest {
           View.MeasureSpec.makeMeasureSpec(640, View.MeasureSpec.EXACTLY));
       a.root.layout(0, 0, 320, 640);
       FrameLayout row =
-          (FrameLayout) find(a.root, "settings-item:חסום צילום מסך ותצוגה במעבר אפליקציות");
+          (FrameLayout)
+              find(
+                  a.root,
+                  "settings-item:שמות עיר ומדינה · שירות המיקום של Android, עשוי להשתמש ברשת");
       View label = row.getChildAt(0), toggle = row.getChildAt(1);
       assertTrue(label.getWidth() > 80);
       assertTrue(toggle.getWidth() >= 48);
@@ -137,11 +140,12 @@ public class CustomizationExperienceTest {
       var a = c.get();
       a.tab = "settings";
       a.render();
-      clickText(a.root, "פרטיות");
+      clickText(a.root, "ספרייה");
       assertEquals(View.GONE, find(a.root, "settings-item:רגעים מעל התמונות").getVisibility());
       assertEquals(
           View.VISIBLE,
-          find(a.root, "settings-item:חסום צילום מסך ותצוגה במעבר אפליקציות").getVisibility());
+          find(a.root, "settings-item:שמות עיר ומדינה · שירות המיקום של Android, עשוי להשתמש ברשת")
+              .getVisibility());
       clickText(a.root, "הכול");
       assertEquals(View.VISIBLE, find(a.root, "settings-item:רגעים מעל התמונות").getVisibility());
     }
@@ -277,7 +281,7 @@ public class CustomizationExperienceTest {
               .getExtras()
               .getBoolean("android.content.extra.IS_SENSITIVE"));
       assertTrue(
-          (sheet.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) != 0);
+          (sheet.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) == 0);
       sheet.dismiss();
     }
   }

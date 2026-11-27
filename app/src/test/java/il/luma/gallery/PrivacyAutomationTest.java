@@ -56,19 +56,19 @@ public class PrivacyAutomationTest {
   }
 
   @Test
-  public void mainAndDialogWindowsProtectScreenshots() {
+  public void mainAndDialogWindowsAllowScreenshotsEvenWithLegacyFlags() {
     try (var controller = Robolectric.buildActivity(ModernActivity.class).setup()) {
       var a = controller.get();
       int flag = WindowManager.LayoutParams.FLAG_SECURE;
-      assertTrue((a.getWindow().getAttributes().flags & flag) != 0);
+      assertEquals(0, a.getWindow().getAttributes().flags & flag);
       var d = new PrivacyDialogBuilder(a).setMessage("private").create();
-      assertTrue((d.getWindow().getAttributes().flags & flag) != 0);
+      assertEquals(0, d.getWindow().getAttributes().flags & flag);
       a.prefs.edit().putBoolean("protectScreen", false).commit();
       AppPrivacy.apply(a.getWindow(), a);
       assertEquals(0, a.getWindow().getAttributes().flags & flag);
       a.prefs.edit().putBoolean("appLock", true).commit();
       AppPrivacy.apply(a.getWindow(), a);
-      assertTrue((a.getWindow().getAttributes().flags & flag) != 0);
+      assertEquals(0, a.getWindow().getAttributes().flags & flag);
     }
   }
 

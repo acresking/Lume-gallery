@@ -29,8 +29,9 @@ final class PeoplePlaces {
         a.text(
             kind.equals("person")
                 ? "קבוצות לפי דמיון בין פנים, לא זיהוי זהות. אפשר לתת שם, לשנות ולתקן קבוצה."
-                : "רק תמונות עם מיקום GPS בקובץ. אין מעקב אחר מיקום הטלפון ואין שליחת מיקומים"
-                    + " לשרת.",
+                : "רק תמונות עם מיקום GPS בקובץ. אין מעקב אחר מיקום הטלפון. שמות מקומות נפתרים"
+                    + " באמצעות שירות Android, שעשוי להעביר את הקואורדינטות לשרת. אפשר לכבות שמות"
+                    + " בהגדרות.",
             13));
     a.action(
         c,
@@ -68,7 +69,36 @@ final class PeoplePlaces {
         cover.setImageDrawable(
             new GalleryIcons(kind.equals("person") ? "people" : "place", a.accent));
       cell.addView(cover, new LinearLayout.LayoutParams(a.dp(104), a.dp(104)));
-      TextView title = a.label(name, 15, a.ink, true);
+      TextView title =
+          a.label(
+              kind.equals("place") && name.startsWith("מקום ") ? "שם המקום אינו זמין עדיין" : name,
+              15,
+              a.ink,
+              true);
+      if (kind.equals("place")) {
+        String coordinate = item.optString("id").replace("place:", "");
+        // Group identifiers are rounded coordinates; keep IDs/membership unchanged.
+        a.io.execute(
+            () -> {
+              try {
+                String[] point = coordinate.split(",");
+                if (point.length != 2) return;
+                String resolved =
+                    LocationNames.resolve(
+                        a,
+                        Double.parseDouble(point[0].trim()),
+                        Double.parseDouble(point[1].trim()));
+                a.runOnUiThread(
+                    () -> {
+                      if (!a.destroyed && !resolved.isBlank() && name.startsWith("מקום ")) {
+                        title.setText(resolved);
+                        a.placeDisplayNames.put(name, resolved);
+                      }
+                    });
+              } catch (Exception ignored) {
+              }
+            });
+      }
       title.setGravity(android.view.Gravity.CENTER);
       title.setMaxLines(2);
       cell.addView(title);

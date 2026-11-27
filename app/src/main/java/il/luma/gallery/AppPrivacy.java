@@ -20,9 +20,8 @@ final class AppPrivacy {
 
   static void apply(Window window, Context context) {
     if (window == null) return;
-    var p = context.getSharedPreferences("luma", 0);
-    if (p.getBoolean("protectScreen", true) || p.getBoolean("appLock", false))
-      window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    // The regular gallery permits capture; the isolated vault always overrides this.
+    if (context instanceof VaultActivity) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
     else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
   }
 

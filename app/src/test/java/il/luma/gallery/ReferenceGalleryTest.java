@@ -150,7 +150,7 @@ public class ReferenceGalleryTest {
       var dialog = ShadowDialog.getLatestDialog();
       assertTrue(dialog.isShowing());
       assertTrue(
-          (dialog.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) != 0);
+          (dialog.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) == 0);
       assertTrue(hasScroll(dialog.getWindow().getDecorView()));
       a.io.submit(() -> {}).get();
       Shadows.shadowOf(Looper.getMainLooper()).idle();

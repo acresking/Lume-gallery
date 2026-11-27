@@ -71,3 +71,12 @@
 - Swipe-up details must reject zoomed, horizontal, canceled and multi-touch gestures. Explicit details remains accessible.
 - All collection tools remain reachable from the overflow menu regardless of section visibility. Visibility settings must never erase albums, indexes, media or cleanup rules.
 - Metadata is read-only, local and asynchronous. Display only available fields; do not invent location/camera/HDR information. Clipboard writes require a tap and sensitive-content marking.
+
+
+## v11 rules (override earlier screenshot/network defaults)
+
+Regular gallery windows allow capture; only the isolated vault and credential gate force FLAG_SECURE. A vault must not reuse archive labels or imply that copying media hides the originals. Use Android device-password UI, never a fake password form. Vault dialogs are secure before their first frame and must close when the vault locks.
+
+City/country lookup may use Android's network geocoder. Explain this in settings and location details, support opt-out, never invent a city, and never launch external maps without a tap. Preserve explicit user-supplied place names and group membership.
+
+Pinch density changes must keep the current scroll anchor and saved column preference. Recycled thumbnail cells remain square, date headers span the current column count, and a multi-touch gesture must not select a thumbnail. Keep the manual density setting available.

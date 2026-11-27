@@ -176,7 +176,7 @@ public class CreationExperienceTest {
       assertTrue(portrait.isSelected());
       assertTrue(editor.previewBitmap.getHeight() > editor.previewBitmap.getWidth());
       assertTrue(
-          (editor.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) != 0);
+          (editor.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_SECURE) == 0);
       ViewGroup host = editor.getWindow().getDecorView().findViewById(android.R.id.content);
       View root = host.getChildAt(0);
       root.measure(

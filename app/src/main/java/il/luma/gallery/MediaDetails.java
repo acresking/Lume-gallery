@@ -94,6 +94,10 @@ final class MediaDetails {
         double[] gps = exif.getLatLong();
         if (gps != null)
           add(out, "מיקום GPS", String.format(Locale.ROOT, "%.6f, %.6f", gps[0], gps[1]));
+        if (gps != null) {
+          String place = LocationNames.resolve(c, gps[0], gps[1]);
+          if (!place.isBlank()) add(out, "מיקום · עיר ומדינה", place);
+        }
         double altitude = exif.getAltitude(Double.NaN);
         if (Double.isFinite(altitude))
           add(out, "גובה", String.format(Locale.ROOT, "%.1f m", altitude));
@@ -118,7 +122,22 @@ final class MediaDetails {
   static void readVideo(Context c, MainActivity.Media media, Map<String, String> out) {
     MediaMetadataRetriever retriever = new MediaMetadataRetriever();
     try {
-      retriever.setDataSource(c, media.uri);
+      android.net.Uri source = media.uri;
+      if (c.getSharedPreferences("luma", 0).getBoolean("detailsLocation", true)
+          && "media".equals(source.getAuthority())
+          && c.checkSelfPermission(android.Manifest.permission.ACCESS_MEDIA_LOCATION)
+              == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        try {
+          source = android.provider.MediaStore.setRequireOriginal(source);
+        } catch (Exception ignored) {
+        }
+      }
+      try {
+        retriever.setDataSource(c, source);
+      } catch (Exception e) {
+        if (!source.equals(media.uri)) retriever.setDataSource(c, media.uri);
+        else throw e;
+      }
       String ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
       if (ms != null) add(out, "משך", duration(Long.parseLong(ms)));
       String bitRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE);
@@ -127,6 +146,16 @@ final class MediaDetails {
             out,
             "קצב נתונים",
             String.format(Locale.ROOT, "%.1f Mbps", Long.parseLong(bitRate) / 1_000_000d));
+      if (c.getSharedPreferences("luma", 0).getBoolean("detailsLocation", true)) {
+        double[] gps =
+            LocationNames.parseIso6709(
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION));
+        if (gps != null) {
+          add(out, "מיקום GPS", String.format(Locale.ROOT, "%.6f, %.6f", gps[0], gps[1]));
+          String place = LocationNames.resolve(c, gps[0], gps[1]);
+          if (!place.isBlank()) add(out, "מיקום · עיר ומדינה", place);
+        }
+      }
       String rotation =
           retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
       if (rotation != null) add(out, "סיבוב", rotation + "°");

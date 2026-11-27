@@ -25,6 +25,7 @@ public final class ModernActivity extends MainActivity {
   AppPrivacy privacy;
   CollageStudio collageStudio;
   PeoplePlaces peoplePlaces;
+  final Map<String, String> placeDisplayNames = new java.util.concurrent.ConcurrentHashMap<>();
   MediaInfoSheet infoSheet;
   private String settingsQuery = "";
   private String settingsCategory = "הכול";
@@ -428,7 +429,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 10.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 11.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -454,7 +455,9 @@ public final class ModernActivity extends MainActivity {
       SmartCollections.Category category = SmartCollections.find(collection.substring(6));
       return category == null ? "קטגוריה חכמה" : category.title;
     }
-    if (!customAlbum.isEmpty()) return customAlbum;
+    if (!customAlbum.isEmpty())
+      return placeDisplayNames.getOrDefault(
+          customAlbum, customAlbum.startsWith("מקום ") ? "מקום מהספרייה" : customAlbum);
     if (!album.isEmpty()) {
       String[] p = album.split("/");
       return p[p.length - 1];
@@ -786,10 +789,11 @@ public final class ModernActivity extends MainActivity {
     layout.setSpanSizeLookup(
         new GridLayoutManager.SpanSizeLookup() {
           public int getSpanSize(int position) {
-            return timelineItems.get(position) instanceof String ? cols : 1;
+            return timelineItems.get(position) instanceof String ? layout.getSpanCount() : 1;
           }
         });
     timeline.setLayoutManager(layout);
+    timeline.addOnItemTouchListener(new PinchGrid(this, timeline));
     timeline.setItemAnimator(null);
     timeline.setPadding(dp(2), 0, dp(2), dp(12));
     timeline.setClipToPadding(false);
@@ -988,7 +992,7 @@ public final class ModernActivity extends MainActivity {
         text.setLayoutParams(new RecyclerView.LayoutParams(-1, -2));
         return new TileHolder(text);
       }
-      FrameLayout tile = new FrameLayout(ModernActivity.this);
+      FrameLayout tile = new SquareTile(ModernActivity.this);
       int side =
           (getResources().getDisplayMetrics().widthPixels - dp(4)) / prefs.getInt("columns", 3);
       RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(-1, side);
@@ -1235,6 +1239,10 @@ public final class ModernActivity extends MainActivity {
   void albums() {
     LinearLayout c = scroll();
     c.setPadding(dp(18), dp(2), dp(18), dp(22));
+    action(
+        c,
+        "הכספת שלך · מוגנת בסיסמת המכשיר",
+        () -> startActivity(new Intent(this, VaultActivity.class)));
     if (prefs.getBoolean("collectionPinned", true)) drawPinnedCollections(c);
     if (prefs.getBoolean("collectionFolders", true)) drawDeviceFolders(c);
     if (prefs.getBoolean("collectionAlbums", true)) drawPersonalAlbums(c);
@@ -2040,6 +2048,7 @@ public final class ModernActivity extends MainActivity {
     categoryScroll.addView(categories);
     c.addView(categoryScroll);
     section(c, "מסך התמונות והצופה");
+    preference(c, "צביטה לשינוי צפיפות התמונות", "pinchGrid", true);
     preference(c, "רגעים מעל התמונות", "memoriesPhotos", true);
     preference(c, "מסננים מהירים מעל התמונות", "quickFilters", true);
     preference(c, "פס תמונות ממוזערות בצופה", "viewerFilmstrip", true);
@@ -2179,6 +2188,8 @@ public final class ModernActivity extends MainActivity {
             render();
           });
     section(c, "סידור אוטומטי");
+    preference(
+        c, "שמות עיר ומדינה · שירות המיקום של Android, עשוי להשתמש ברשת", "placeNames", true);
     preference(c, "אנשים — סריקה אוטומטית במכשיר", "autoPeople", true);
     preference(c, "מקומות — קריאת GPS אוטומטית", "autoPlaces", true);
     preference(c, "עיבוד רק בזמן טעינה", "organizeCharging", true);
@@ -2190,7 +2201,11 @@ public final class ModernActivity extends MainActivity {
                 new String[] {android.Manifest.permission.ACCESS_MEDIA_LOCATION}, 44));
     action(c, "מצב סידור אוטומטי", () -> message("סידור אוטומטי", AutoOrganizeJob.status(this)));
     section(c, "אבטחה ופרטיות");
-    preference(c, "חסום צילום מסך ותצוגה במעבר אפליקציות", "protectScreen", true);
+    action(
+        c,
+        "כספת מוצפנת · כניסה עם סיסמת המכשיר",
+        () -> startActivity(new Intent(this, VaultActivity.class)));
+    c.addView(text("צילום והקלטת מסך מותרים בגלריה הרגילה וחסומים בכספת בלבד.", 13));
     action(
         c,
         prefs.getBoolean("appLock", false) ? "נעילת מכשיר פעילה · שינוי" : "הפעל נעילת אפליקציה",
@@ -2215,8 +2230,9 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 10.0.0 · המדיה נשארת במכשיר\n"
-                + "חיבור לאינטרנט משמש להורדת מודלים בלבד. אין העלאת תמונות, חשבון או מודעות.\n"
+            "Lume Gallery 11.0.0 · המדיה נשארת במכשיר\n"
+                + "האינטרנט משמש להורדת מודלים ולשמות מקומות דרך Android. מפה נפתחת בלחיצה. אין"
+                + " העלאת תמונות או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
             13));
@@ -2879,7 +2895,8 @@ public final class ModernActivity extends MainActivity {
       "ארכיון",
       "סל שחזור",
       "ניקוי אוטומטי",
-      "התאמת התצוגה"
+      "התאמת התצוגה",
+      "כספת מוצפנת"
     };
     new PrivacyDialogBuilder(this)
         .setTitle("כל כלי הגלריה")
@@ -2926,6 +2943,9 @@ public final class ModernActivity extends MainActivity {
                 case 12:
                   tab = "rules";
                   render();
+                  break;
+                case 14:
+                  startActivity(new Intent(this, VaultActivity.class));
                   break;
                 case 13:
                   settingsQuery = "";

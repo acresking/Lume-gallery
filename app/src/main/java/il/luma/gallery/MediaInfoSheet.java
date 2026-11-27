@@ -20,6 +20,7 @@ final class MediaInfoSheet extends Dialog {
   private String selected = "הכול";
   private boolean loading = true, expanded;
   private TextView sizeButton;
+  private double[] gps;
 
   MediaInfoSheet(ModernActivity activity, MainActivity.Media item) {
     super(activity);
@@ -123,6 +124,16 @@ final class MediaInfoSheet extends Dialog {
               () -> {
                 if (!isShowing() || host.destroyed) return;
                 for (var e : data.entrySet()) {
+                  if (e.getKey().equals("מיקום GPS")) {
+                    try {
+                      String[] parts = e.getValue().split(",");
+                      double lat = Double.parseDouble(parts[0].trim()),
+                          lon = Double.parseDouble(parts[1].trim());
+                      if (LocationNames.valid(lat, lon)) gps = new double[] {lat, lon};
+                    } catch (Exception ignored) {
+                    }
+                    continue;
+                  }
                   if (e.getKey().startsWith("מיקום") || e.getKey().equals("גובה"))
                     location.put(e.getKey(), e.getValue());
                   else capture.put(e.getKey(), e.getValue());
@@ -172,8 +183,16 @@ final class MediaInfoSheet extends Dialog {
     }
     if (selected.equals("הכול") || selected.equals("מיקום")) {
       group("מיקום בקובץ", location);
+      if (gps != null && host.prefs.getBoolean("detailsLocation", true)) {
+        if (location.isEmpty())
+          note("שם העיר והמדינה אינו זמין כעת. אפשר לפתוח את המיקום השמור במפה.");
+        entries.addView(host.button("הצג על מפה", this::openMap));
+        note(
+            "שמות מקומות עשויים להשתמש בשירות המיקום של Android. פתיחת מפה מעבירה את המיקום"
+                + " לאפליקציית המפות שבחרת.");
+      }
       if (!host.prefs.getBoolean("detailsLocation", true)) note("הצגת המיקום כבויה בהגדרות.");
-      else if (!loading && location.isEmpty())
+      else if (!loading && location.isEmpty() && gps == null)
         note(
             "לא נמצא מיקום קריא בקובץ. Android עשוי להסתיר GPS ללא הרשאת מיקום בתמונות; אפשר לנהל"
                 + " אותה בהגדרות הגלריה.");
@@ -210,6 +229,16 @@ final class MediaInfoSheet extends Dialog {
     TextView note = host.label(text, 13, host.ink, false);
     note.setPadding(host.dp(8), host.dp(12), host.dp(8), host.dp(8));
     entries.addView(note);
+  }
+
+  void openMap() {
+    if (gps == null || !host.prefs.getBoolean("detailsLocation", true)) return;
+    try {
+      host.startActivity(new Intent(Intent.ACTION_VIEW, LocationNames.mapUri(gps[0], gps[1])));
+    } catch (ActivityNotFoundException error) {
+      host.message(
+          "מפה", "לא נמצאה אפליקציית מפות במכשיר. אפשר להתקין אפליקציה שתומכת בפתיחת מיקום.");
+    }
   }
 
   void copy(String name, String value) {
