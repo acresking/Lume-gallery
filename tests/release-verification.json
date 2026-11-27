@@ -1,16 +1,14 @@
 {
-  "version": "6.0.0",
-  "versionCode": 6,
-  "apk_name": "LumeGallery-v6.0.0.apk",
+  "version": "7.0.0",
+  "versionCode": 7,
+  "apk_name": "LumeGallery-v7.0.0.apk",
   "bytes": 133671191,
-  "sha256": "ab3695f4bb5f15e8e553a0a807e7318e97cf25edc722e1d0d01f0f65242a7959",
+  "sha256": "2dd9c52f45b5101ad096b20e472c6dc05a5e4fc7bc6a6c2e1400dc75fcb6b73a",
   "certificate_sha256": "79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7",
-  "app_tests_passed": 18,
-  "build_privacy_tests_passed": 2,
+  "app_tests_passed": 24,
   "lint_errors": 0,
-  "lint_warnings": 25,
+  "lint_warnings": 28,
   "physical_device_tested": false,
   "arm64_native_libraries_16kb": 3,
-  "packaged_mediapipe_stats_factory": "TasksStatsDummyLogger",
-  "code_commit": "d3a4aecb0813dc316498ec4b9258dd618dff262f"
+  "packaged_mediapipe_stats_factory": "TasksStatsDummyLogger"
 }

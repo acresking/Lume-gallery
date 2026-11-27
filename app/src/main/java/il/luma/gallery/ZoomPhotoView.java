@@ -37,6 +37,12 @@ final class ZoomPhotoView extends View {
               }
 
               @Override
+              public boolean onSingleTapConfirmed(MotionEvent e) {
+                performClick();
+                return true;
+              }
+
+              @Override
               public boolean onDoubleTap(MotionEvent e) {
                 zoom = zoom > 1 ? 1 : 2;
                 panX = panY = 0;
@@ -69,6 +75,12 @@ final class ZoomPhotoView extends View {
   }
 
   @Override
+  protected void onSizeChanged(int w, int h, int oldW, int oldH) {
+    super.onSizeChanged(w, h, oldW, oldH);
+    bound();
+  }
+
+  @Override
   protected void onDraw(Canvas c) {
     super.onDraw(c);
     if (bitmap == null) return;
@@ -90,9 +102,10 @@ final class ZoomPhotoView extends View {
 
   @Override
   public boolean onTouchEvent(MotionEvent e) {
-    getParent()
-        .requestDisallowInterceptTouchEvent(
-            zoom > 1 || scale.isInProgress() || e.getPointerCount() > 1);
+    if (getParent() != null)
+      getParent()
+          .requestDisallowInterceptTouchEvent(
+              zoom > 1 || scale.isInProgress() || e.getPointerCount() > 1);
     scale.onTouchEvent(e);
     gestures.onTouchEvent(e);
     if (e.getActionMasked() == MotionEvent.ACTION_MOVE
@@ -106,7 +119,6 @@ final class ZoomPhotoView extends View {
     }
     lastX = e.getX();
     lastY = e.getY();
-    if (e.getActionMasked() == MotionEvent.ACTION_UP) performClick();
     return true;
   }
 }

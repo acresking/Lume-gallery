@@ -37,6 +37,7 @@ public final class ModernActivity extends MainActivity {
   private RecyclerView timeline;
   private TimelineAdapter timelineAdapter;
   private final ArrayList<Object> timelineItems = new ArrayList<>();
+  private final Map<String, ArrayList<Media>> dateGroups = new LinkedHashMap<>();
   private final Handler ui = new Handler(Looper.getMainLooper());
   private Runnable pendingSearch;
   private int muted;
@@ -65,6 +66,7 @@ public final class ModernActivity extends MainActivity {
       collection = state.getString("lume.collection", "");
       customAlbum = state.getString("lume.custom", "");
       grouping = state.getString("lume.grouping", "days");
+      filter = Math.max(0, Math.min(3, state.getInt("lume.filter", 0)));
       search = state.getString("lume.search", "");
       Parcelable position = state.getParcelable("lume.timeline");
       if (position != null) timelinePositions.put(screenKey(), position);
@@ -382,6 +384,7 @@ public final class ModernActivity extends MainActivity {
     out.putString("lume.custom", customAlbum);
     out.putString("lume.grouping", grouping);
     out.putString("lume.search", search);
+    out.putInt("lume.filter", filter);
     out.putParcelable("lume.timeline", timelinePositions.get(screenKey()));
     out.putInt("lume.page", pagePositions.getOrDefault(screenKey(), 0));
     super.onSaveInstanceState(out);
@@ -403,7 +406,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 5.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 7.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -562,6 +565,7 @@ public final class ModernActivity extends MainActivity {
   }
 
   void openCollection(String key) {
+    filter = 0;
     collection = key;
     customAlbum = "";
     album = "";
@@ -685,24 +689,23 @@ public final class ModernActivity extends MainActivity {
       body.addView(tools);
     }
     LinearLayout chips = row();
-    chips.setPadding(dp(24), dp(4), dp(24), dp(12));
+    chips.setPadding(dp(16), dp(2), dp(12), dp(6));
+    HorizontalScrollView groupingScroll = new HorizontalScrollView(this);
+    groupingScroll.setHorizontalScrollBarEnabled(false);
+    LinearLayout groupingRow = row();
     String[][] groups = {{"days", "ימים"}, {"months", "חודשים"}, {"years", "שנים"}};
     for (String[] group : groups) {
-      TextView chip =
-          label(
-              group[1], 13, grouping.equals(group[0]) ? accent : muted, grouping.equals(group[0]));
-      chip.setGravity(Gravity.CENTER);
-      chip.setPadding(dp(15), dp(8), dp(15), dp(8));
-      chip.setBackground(rounded(grouping.equals(group[0]) ? card : Color.TRANSPARENT, 18));
+      TextView chip = galleryChip(group[1], grouping.equals(group[0]));
       chip.setOnClickListener(
           v -> {
             grouping = group[0];
             render();
           });
-      chips.addView(chip);
+      groupingRow.addView(chip);
     }
-    View spacer = new View(this);
-    chips.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
+    groupingScroll.addView(groupingRow);
+    chips.addView(groupingScroll, new LinearLayout.LayoutParams(0, -2, 1));
+    chips.addView(iconButton("clock", "קפיצה לתאריך", this::dateJumpDialog));
     chips.addView(
         iconButton(
             "select",
@@ -713,6 +716,20 @@ public final class ModernActivity extends MainActivity {
               render();
             }));
     body.addView(chips);
+    HorizontalScrollView quick = new HorizontalScrollView(this);
+    quick.setHorizontalScrollBarEnabled(false);
+    quick.setContentDescription("סינון בתוך האוסף הנוכחי");
+    LinearLayout filters = row();
+    filters.setPadding(dp(16), 0, dp(16), dp(8));
+    String[] labels = {"הכול", "תמונות", "סרטונים", "מועדפים"};
+    for (int i = 0; i < labels.length; i++) {
+      final int value = i;
+      TextView chip = galleryChip(labels[i], filter == i);
+      chip.setOnClickListener(v -> setQuickFilter(value));
+      filters.addView(chip);
+    }
+    quick.addView(filters);
+    body.addView(quick);
     timeline = new RecyclerView(this);
     int cols = prefs.getInt("columns", 3);
     GridLayoutManager layout = new GridLayoutManager(this, cols);
@@ -753,6 +770,95 @@ public final class ModernActivity extends MainActivity {
     }
   }
 
+  TextView galleryChip(String label, boolean active) {
+    TextView chip = this.label(label, 13, active ? accent : muted, active);
+    chip.setGravity(Gravity.CENTER);
+    chip.setPadding(dp(16), dp(8), dp(16), dp(8));
+    chip.setMinHeight(dp(48));
+    chip.setFocusable(true);
+    chip.setSelected(active);
+    chip.setBackground(
+        new RippleDrawable(
+            ColorStateList.valueOf(0x226d52c7),
+            rounded(active ? card : Color.TRANSPARENT, 20),
+            null));
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+    lp.setMargins(0, 0, dp(4), 0);
+    chip.setLayoutParams(lp);
+    return chip;
+  }
+
+  void setQuickFilter(int value) {
+    filter = Math.max(0, Math.min(3, value));
+    selected.clear();
+    selecting = false;
+    render();
+  }
+
+  int toggleDateGroup(String heading) {
+    java.util.List<Media> group = dateGroups.getOrDefault(heading, new ArrayList<>());
+    boolean all =
+        !group.isEmpty() && group.stream().allMatch(m -> selected.contains(m.uri.toString()));
+    if (group.isEmpty()) return selected.size();
+    for (Media m : group)
+      if (all) selected.remove(m.uri.toString());
+      else selected.add(m.uri.toString());
+    selecting = true;
+    render();
+    return selected.size();
+  }
+
+  boolean dateGroupSelected(String heading) {
+    java.util.List<Media> group = dateGroups.get(heading);
+    return group != null
+        && !group.isEmpty()
+        && group.stream().allMatch(m -> selected.contains(m.uri.toString()));
+  }
+
+  int nearestDatePosition(long date) {
+    int best = -1;
+    long distance = Long.MAX_VALUE;
+    for (int i = 0; i < timelineItems.size(); i++)
+      if (timelineItems.get(i) instanceof Media) {
+        Media m = (Media) timelineItems.get(i);
+        long difference = Math.abs(m.date - date);
+        if (difference < distance) {
+          distance = difference;
+          best = i;
+        }
+      }
+    if (best < 0) return -1;
+    while (best > 0 && !(timelineItems.get(best) instanceof String)) best--;
+    return best;
+  }
+
+  void dateJumpDialog() {
+    if (visible.isEmpty()) {
+      message("קפיצה לתאריך", "אין תמונות באוסף או במסנן הנוכחי");
+      return;
+    }
+    Calendar initial = Calendar.getInstance();
+    initial.setTimeInMillis(visible.get(0).date);
+    DatePickerDialog dialog =
+        new DatePickerDialog(
+            this,
+            (picker, year, month, day) -> {
+              Calendar target = Calendar.getInstance();
+              target.clear();
+              target.set(year, month, day, 12, 0);
+              int position = nearestDatePosition(target.getTimeInMillis());
+              if (position >= 0 && timeline != null)
+                ((GridLayoutManager) timeline.getLayoutManager())
+                    .scrollToPositionWithOffset(position, 0);
+            },
+            initial.get(Calendar.YEAR),
+            initial.get(Calendar.MONTH),
+            initial.get(Calendar.DAY_OF_MONTH));
+    dialog.setTitle("קפיצה לתמונה הקרובה לתאריך");
+    AppPrivacy.apply(dialog.getWindow(), this);
+    dialog.show();
+  }
+
   String dateHeading(long time) {
     Date date = new Date(time);
     if (grouping.equals("years")) return new SimpleDateFormat("yyyy", Locale.ROOT).format(date);
@@ -771,9 +877,11 @@ public final class ModernActivity extends MainActivity {
   void updateTimeline() {
     visible = filtered();
     timelineItems.clear();
+    dateGroups.clear();
     String last = "";
     for (Media m : visible) {
       String h = dateHeading(m.date);
+      dateGroups.computeIfAbsent(h, k -> new ArrayList<>()).add(m);
       if (!h.equals(last)) {
         timelineItems.add(h);
         last = h;
@@ -843,7 +951,23 @@ public final class ModernActivity extends MainActivity {
     public void onBindViewHolder(TileHolder holder, int p) {
       Object item = timelineItems.get(p);
       if (item instanceof String) {
-        ((TextView) holder.itemView).setText((String) item);
+        String heading = (String) item;
+        TextView label = (TextView) holder.itemView;
+        label.setText(
+            heading
+                + (selecting
+                    ? (dateGroupSelected(heading) ? " · בטל בחירה" : " · בחר קבוצה")
+                    : ""));
+        label.setMinHeight(dp(48));
+        label.setFocusable(true);
+        label.setTextColor(selecting ? accent : ink);
+        label.setContentDescription(heading + " · בחירת כל הפריטים בקבוצה או ביטול בחירתם");
+        label.setOnClickListener(v -> toggleDateGroup(heading));
+        label.setOnLongClickListener(
+            v -> {
+              toggleDateGroup(heading);
+              return true;
+            });
         return;
       }
       Media m = (Media) item;
@@ -933,16 +1057,26 @@ public final class ModernActivity extends MainActivity {
     addTool(
         selectionBar,
         "select",
-        "הכול",
-        () -> {
-          for (Media m : visible) selected.add(m.uri.toString());
-          title.setText(selected.size() + " נבחרו");
-          timelineAdapter.notifyDataSetChanged();
-        });
+        !visible.isEmpty() && visible.stream().allMatch(m -> selected.contains(m.uri.toString()))
+            ? "בטל"
+            : "הכול",
+        this::toggleVisibleSelection);
     addTool(selectionBar, "share", "שיתוף", () -> share(new ArrayList<>(selected)));
     addTool(selectionBar, "plus", "לאלבום", () -> chooseAlbum(new ArrayList<>(selected)));
     addTool(selectionBar, "trash", "מחיקה", () -> trash(new ArrayList<>(selected)));
     addTool(selectionBar, "more", "עוד", this::selectionMore);
+  }
+
+  int toggleVisibleSelection() {
+    boolean all =
+        !visible.isEmpty() && visible.stream().allMatch(m -> selected.contains(m.uri.toString()));
+    for (Media m : visible)
+      if (all) selected.remove(m.uri.toString());
+      else selected.add(m.uri.toString());
+    title.setText(selected.size() + " נבחרו");
+    timelineAdapter.notifyDataSetChanged();
+    updateSelectionBar();
+    return selected.size();
   }
 
   void addTool(LinearLayout parent, String icon, String caption, Runnable click) {
@@ -1150,6 +1284,7 @@ public final class ModernActivity extends MainActivity {
           entry.getValue().size(),
           entry.getValue().get(0),
           () -> {
+            filter = 0;
             album = path;
             customAlbum = "";
             collection = "";
@@ -1714,7 +1849,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 6.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 7.0.0 · המדיה נשארת במכשיר\n"
                 + "חיבור לאינטרנט משמש להורדת מודלים בלבד. אין העלאת תמונות, חשבון או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
@@ -1775,6 +1910,7 @@ public final class ModernActivity extends MainActivity {
   }
 
   void openNamedAlbum(String name) {
+    filter = 0;
     if (ai != null && ai.manager != null && ai.manager.isShowing()) ai.manager.dismiss();
     customAlbum = name;
     collection = "";
@@ -1878,6 +2014,7 @@ public final class ModernActivity extends MainActivity {
     int current;
     ViewPager2 pager;
     LinearLayout top, tools, film;
+    HorizontalScrollView strip;
     VideoView activeVideo;
     boolean controls = true;
     final Handler slideshowHandler = new Handler(Looper.getMainLooper());
@@ -1934,6 +2071,8 @@ public final class ModernActivity extends MainActivity {
               Media m = pages.get(pos);
               if (!m.video()) {
                 ZoomPhotoView image = new ZoomPhotoView(ModernActivity.this);
+                image.setContentDescription(m.name + " · הקש להצגת פקדים או הסתרתם");
+                image.setOnClickListener(v -> toggleControls());
                 frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
                 thumbs.execute(
                     () -> {
@@ -1984,7 +2123,7 @@ public final class ModernActivity extends MainActivity {
             }
           });
       content.addView(pager, new LinearLayout.LayoutParams(-1, 0, 1));
-      HorizontalScrollView strip = new HorizontalScrollView(ModernActivity.this);
+      strip = new HorizontalScrollView(ModernActivity.this);
       strip.setHorizontalScrollBarEnabled(false);
       film = row();
       film.setGravity(Gravity.CENTER);
@@ -1998,6 +2137,7 @@ public final class ModernActivity extends MainActivity {
           new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int p) {
+              if (current == p && top.getChildCount() > 0) return;
               if (activeVideo != null) {
                 activeVideo.stopPlayback();
                 activeVideo = null;
@@ -2021,19 +2161,51 @@ public final class ModernActivity extends MainActivity {
       getWindow().setLayout(-1, -1);
     }
 
+    void toggleControls() {
+      controls = !controls;
+      for (View view : new View[] {top, tools, strip}) {
+        view.animate().cancel();
+        if (controls) {
+          view.setVisibility(View.VISIBLE);
+          view.setAlpha(motion() ? 0 : 1);
+          if (motion()) view.animate().alpha(1).setDuration(160).start();
+        } else if (motion())
+          view.animate()
+              .alpha(0)
+              .setDuration(140)
+              .withEndAction(
+                  () -> {
+                    if (!controls) view.setVisibility(View.GONE);
+                  })
+              .start();
+        else view.setVisibility(View.GONE);
+      }
+      WindowInsetsController insets = getWindow().getInsetsController();
+      if (insets != null) {
+        insets.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        if (controls) insets.show(WindowInsets.Type.systemBars());
+        else insets.hide(WindowInsets.Type.systemBars());
+      }
+    }
+
     void whiteTool(LinearLayout row, String icon, String caption, Runnable click) {
       LinearLayout t = column();
       t.setGravity(Gravity.CENTER);
+      t.setMinimumHeight(dp(56));
+      t.setPadding(dp(3), dp(4), dp(3), dp(4));
       ImageView image = icon(icon, Color.WHITE, 23);
       t.addView(image);
       TextView name = label(caption, 11, Color.WHITE, false);
+      name.setMaxLines(2);
+      name.setEllipsize(TextUtils.TruncateAt.END);
+      name.setGravity(Gravity.CENTER);
       LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
       lp.topMargin = dp(8);
       t.addView(name, lp);
       t.setContentDescription(caption);
       t.setFocusable(true);
       t.setOnClickListener(v -> click.run());
-      row.addView(t, new LinearLayout.LayoutParams(0, dp(48), 1));
+      row.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
     }
 
     void refresh() {

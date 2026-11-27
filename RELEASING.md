@@ -13,7 +13,7 @@ LUME_KEYSTORE_PATH, LUME_STORE_PASSWORD, LUME_KEY_ALIAS, LUME_KEY_PASSWORD.
 Verify using apksigner and zipalign with 16KB page support. Official certificate SHA-256:
 79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7
 
-Create a GitHub Release tagged v6.0.0 from the tested commit. Upload the same signed APK as both LumeGallery-v6.0.0.apk and LumeGallery.apk, plus SHA256SUMS.txt. Mark a stable build as latest. Download and verify assets before announcing availability.
+Create a GitHub Release tagged v7.0.0 from the tested commit. Upload the same signed APK as both LumeGallery-v7.0.0.apk and LumeGallery.apk, plus SHA256SUMS.txt. Mark a stable build as latest. Download and verify assets before announcing availability.
 
 Permanent URL after publication:
 https://github.com/acresking/Lume-gallery/releases/latest/download/LumeGallery.apk
