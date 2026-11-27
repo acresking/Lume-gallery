@@ -1,26 +1,24 @@
-# Lume Gallery 7.0.0 — verification
+# Lume Gallery 8.0.0 — verification
 
 ## Changes checked
 
-Quick media filters scoped to the current album, rotation-state restoration, selectable date groups, reversible select-all, nearest-date navigation, and single-tap clean viewing. Date-group membership is cached during timeline construction instead of repeatedly formatting the entire library when selecting groups. Viewer action heights adapt to large text; duplicate pager-selection notifications no longer rebuild the toolbar during layout.
+Responsive three-column album covers, local smart content collections, true-black dark appearance and a scrollable asynchronous photo/video metadata sheet. The new categories reuse existing Lume AI index entries and reject stale fingerprints and archived media. Camera data comes from the selected file, not from assumptions about the current device.
 
 ## Results
 
-- Signed release build, Android Lint and all 24 app tests passed.
-- Six new experience tests cover scope/reset of quick filters, rotation, date-group/select-all reversal, nearest group navigation, 320dp controls at enlarged font, large-font viewer controls/clean mode, and drag versus single-tap behavior. Prior gallery, editor, AI validation, encryption and background-job checks also passed.
-- Android Lint: zero errors, 28 warnings, mainly resource/text conventions and performance suggestions.
-- UI preview rendered through Android/Robolectric. No physical phone testing is claimed.
-- Signature verified with the same certificate as v6 and earlier builds. APK versionCode is 7; debugging is disabled. Backup/cleartext restrictions are retained.
-- ZIP alignment verified for 16KB pages. All three ARM64 native libraries retain ELF LOAD alignment of at least 16KB.
-- Packaged DEX disassembly confirms MediaPipe's stats factory calls its upstream DummyLogger rather than its remote ProtoLogger. The build-time privacy transform and models are unchanged.
+- Release build, all 32 app tests and Android Lint passed. Lint: zero errors and 28 warnings.
+- Eight new tests cover fresh/stale/archive filtering, token boundaries, real collection filtering, album density with enlarged text, true-black appearance, EXIF camera/lens/exposure reading without changing source bytes, secure/scrollable details, and formatting missing metadata. All prior 24 app tests also passed.
+- Android UI previews were rendered using synthetic sample media. No private reference recording frames, faces, locations or filenames are included in the code or APK.
+- APK signature verified with the same certificate as previous versions. ZIP 16KB alignment passed and all three ARM64 native libraries retain at least 16KB ELF LOAD alignment.
+- Packaged DEX inspection confirms MediaPipe's stats factory still calls its upstream DummyLogger rather than remote logging. No new permissions, external model providers, map services or analytics were added.
 
 ## Artifact
 
-File: `LumeGallery-v7.0.0.apk`  
-Bytes: 133671191  
-SHA-256: `2dd9c52f45b5101ad096b20e472c6dc05a5e4fc7bc6a6c2e1400dc75fcb6b73a`  
+File: `LumeGallery-v8.0.0.apk`  
+Bytes: 133687575  
+SHA-256: `bbbec35a3f1f190a418f6cc47e7a26ce3f376a1ef02857c8f3478b292cf5ce05`  
 Certificate SHA-256: `79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7`
 
 ## Limits
 
-Android Keystore migration, biometric/device authentication, OnePlus background scheduling, full AI inference and video codecs still need device validation. The new date picker navigates existing authorised media; it does not write EXIF or infer locations. No cloud synchronization, proprietary vendor integrations, or complete feature parity with other galleries is claimed. See PRIVACY.md for storage and protection boundaries.
+No physical-device testing is claimed. Video metadata depends on device/container support and the reported frame rate may not describe every frame of variable-rate video. Smart category accuracy is not guaranteed; no new model accuracy benchmark was performed. Categories populate after local indexing, not after merely installing the APK. Keystore/device authentication, OnePlus job scheduling, video codecs and full model inference still require phone validation. No complete parity with proprietary gallery apps, network maps, cloud backup, Google Lens or ProXDR integration is claimed.

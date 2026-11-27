@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'il.luma.gallery'
  compileSdk 35
- defaultConfig { applicationId 'il.luma.gallery'; minSdk 30; targetSdk 35; versionCode 7; versionName '7.0.0' }
+ defaultConfig { applicationId 'il.luma.gallery'; minSdk 30; targetSdk 35; versionCode 8; versionName '8.0.0' }
  signingConfigs { release {
   def keyPath=System.getenv('LUME_KEYSTORE_PATH')
   if(keyPath){storeFile file(keyPath);storePassword System.getenv('LUME_STORE_PASSWORD');keyAlias System.getenv('LUME_KEY_ALIAS');keyPassword System.getenv('LUME_KEY_PASSWORD')}

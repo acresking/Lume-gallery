@@ -99,8 +99,9 @@ public final class ModernActivity extends MainActivity {
   @Override
   void applyColors() {
     boolean light = prefs.getBoolean("light", true);
-    bg = light ? 0xfff7f7fc : 0xff100f20;
-    card = light ? Color.WHITE : 0xff1c1b30;
+    boolean black = prefs.getBoolean("oledBlack", true);
+    bg = light ? 0xfff7f7fc : black ? Color.BLACK : 0xff100f20;
+    card = light ? Color.WHITE : black ? 0xff15151b : 0xff1c1b30;
     ink = light ? 0xff201d30 : 0xfff4f0ff;
     accent = light ? 0xff6d52c7 : 0xffbba6f7;
     muted = light ? 0xff777287 : 0xffa7a0bd;
@@ -406,7 +407,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 7.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 8.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -427,6 +428,10 @@ public final class ModernActivity extends MainActivity {
   }
 
   String collectionTitle() {
+    if (collection.startsWith("smart:")) {
+      SmartCollections.Category category = SmartCollections.find(collection.substring(6));
+      return category == null ? "קטגוריה חכמה" : category.title;
+    }
     if (!customAlbum.isEmpty()) return customAlbum;
     if (!album.isEmpty()) {
       String[] p = album.split("/");
@@ -578,6 +583,13 @@ public final class ModernActivity extends MainActivity {
 
   boolean inCollection(Media m) {
     String key = m.uri.toString();
+    if (collection.startsWith("smart:")) {
+      SmartCollections.Category category = SmartCollections.find(collection.substring(6));
+      return category != null
+          && !archived.contains(key)
+          && ai != null
+          && category.matches(m, ai.cached.get(key));
+    }
     if (collection.equals("similar")) return similarScores.containsKey(key);
     if (collection.equals("duplicates")) return duplicates.contains(key);
     boolean isArchived = archived.contains(key);
@@ -1178,6 +1190,7 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   void albums() {
+    int columns = albumColumns();
     LinearLayout c = scroll();
     c.setPadding(dp(18), dp(2), dp(18), dp(22));
     LinearLayout pinned = row();
@@ -1236,8 +1249,9 @@ public final class ModernActivity extends MainActivity {
     for (int i = 0; i < albums.length(); i++) {
       JSONObject item = albums.optJSONObject(i);
       if (item == null || item.has("kind")) continue;
-      if (cells % 2 == 0) {
+      if (cells % columns == 0) {
         pair = row();
+        pair.setGravity(Gravity.TOP);
         c.addView(pair);
       }
       String name = item.optString("name");
@@ -1252,7 +1266,10 @@ public final class ModernActivity extends MainActivity {
       albumCard(pair, name, count, cover, () -> openNamedAlbum(name));
       cells++;
     }
-    if (cells % 2 == 1) pair.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+    while (cells % columns != 0) {
+      pair.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+      cells++;
+    }
     if (cells == 0) {
       TextView empty = label("אלבומים אישיים שתיצור יופיעו כאן.", 13, muted, false);
       empty.setPadding(0, dp(2), 0, dp(14));
@@ -1267,8 +1284,9 @@ public final class ModernActivity extends MainActivity {
     cells = 0;
     pair = null;
     for (var entry : paths.entrySet()) {
-      if (cells % 2 == 0) {
+      if (cells % columns == 0) {
         pair = row();
+        pair.setGravity(Gravity.TOP);
         c.addView(pair);
       }
       String path = entry.getKey();
@@ -1294,8 +1312,12 @@ public final class ModernActivity extends MainActivity {
           });
       cells++;
     }
-    if (cells % 2 == 1) pair.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+    while (cells % columns != 0) {
+      pair.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+      cells++;
+    }
     if (cells == 0) c.addView(text("אפשר גישה לתמונות כדי להציג את תיקיות המכשיר.", 13));
+    drawSmartCollections(c);
     TextView types = label("סוגי מדיה וארגון", 22, ink, true);
     types.setPadding(0, dp(22), 0, dp(12));
     c.addView(types);
@@ -1347,6 +1369,59 @@ public final class ModernActivity extends MainActivity {
         break;
       }
     }
+  }
+
+  int albumColumns() {
+    int requested = prefs.getInt("albumColumns", 3) == 2 ? 2 : 3;
+    return getResources().getConfiguration().screenWidthDp < 360
+            && getResources().getConfiguration().fontScale > 1.3f
+        ? 2
+        : requested;
+  }
+
+  void drawSmartCollections(LinearLayout c) {
+    TextView heading = label("קטגוריות חכמות", 22, ink, true);
+    heading.setPadding(0, dp(22), 0, dp(6));
+    c.addView(heading);
+    TextView hint = label("קיבוץ משוער לפי תוכן · עיבוד מקומי", 12, muted, false);
+    hint.setPadding(0, 0, 0, dp(10));
+    c.addView(hint);
+    Map<SmartCollections.Category, ArrayList<Media>> groups =
+        SmartCollections.groups(media, ai == null ? Collections.emptyMap() : ai.cached, archived);
+    int cells = 0, columns = albumColumns();
+    LinearLayout row = null;
+    for (var entry : groups.entrySet()) {
+      if (entry.getValue().isEmpty()) continue;
+      if (cells % columns == 0) {
+        row = row();
+        row.setGravity(Gravity.TOP);
+        c.addView(row);
+      }
+      SmartCollections.Category category = entry.getKey();
+      albumCard(
+          row,
+          category.title,
+          entry.getValue().size(),
+          entry.getValue().get(0),
+          () -> openCollection("smart:" + category.id));
+      cells++;
+    }
+    while (cells % columns != 0) {
+      row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+      cells++;
+    }
+    if (cells == 0)
+      c.addView(
+          text(
+              "לאחר סריקת Lume AI יופיעו כאן תמונות לפי תוכן. הזיהוי עשוי לטעות ואפשר לצפות תמיד"
+                  + " בכל הקבצים המקוריים.",
+              13));
+    action(
+        c,
+        "סרוק קטגוריות במכשיר",
+        () -> {
+          if (ai != null && ai.require("classify")) ai.startIndex();
+        });
   }
 
   void compactShortcut(LinearLayout parent, String glyph, String caption, Runnable click) {
@@ -1420,7 +1495,11 @@ public final class ModernActivity extends MainActivity {
     FrameLayout square = new FrameLayout(this);
     square.setBackground(rounded(card, 22));
     square.setClipToOutline(true);
-    int height = (getResources().getDisplayMetrics().widthPixels - dp(64)) / 2;
+    int columns = albumColumns();
+    int height =
+        Math.max(
+            dp(64),
+            (getResources().getDisplayMetrics().widthPixels - dp(36 + 10 * columns)) / columns);
     ImageView image = new ImageView(this);
     image.setScaleType(ImageView.ScaleType.CENTER_CROP);
     square.addView(image, new FrameLayout.LayoutParams(-1, -1));
@@ -1736,6 +1815,20 @@ public final class ModernActivity extends MainActivity {
                       render();
                     })
                 .show());
+    action(
+        c,
+        "צפיפות אלבומים · " + prefs.getInt("albumColumns", 3) + " עמודות",
+        () ->
+            new PrivacyDialogBuilder(this)
+                .setTitle("תצוגת אלבומים")
+                .setItems(
+                    new String[] {"2 · שערים גדולים", "3 · קומפקטי, מותאם לגודל הטקסט"},
+                    (d, n) -> {
+                      prefs.edit().putInt("albumColumns", n == 0 ? 2 : 3).apply();
+                      render();
+                    })
+                .show());
+    preference(c, "רקע שחור במראה כהה", "oledBlack", true);
     preference(c, "אנימציות ומעברים", "motion", true);
     preference(c, "משוב רטט עדין בבחירה", "haptics", true);
     preference(c, "השאר מסך דולק בצפייה", "viewerAwake", true);
@@ -1849,7 +1942,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 7.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 8.0.0 · המדיה נשארת במכשיר\n"
                 + "חיבור לאינטרנט משמש להורדת מודלים בלבד. אין העלאת תמונות, חשבון או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
@@ -1873,6 +1966,11 @@ public final class ModernActivity extends MainActivity {
         (v, on) -> {
           prefs.edit().putBoolean(key, on).apply();
           if (key.equals("protectScreen")) AppPrivacy.apply(getWindow(), this);
+          if (key.equals("oledBlack")) {
+            applyColors();
+            root.setBackgroundColor(bg);
+            render();
+          }
           if (key.equals("autoPeople")
               || key.equals("autoPlaces")
               || key.equals("organizeCharging")) AutoOrganizeJob.schedule(this);
@@ -2365,39 +2463,66 @@ public final class ModernActivity extends MainActivity {
     }
   }
 
+  void detailEntry(LinearLayout content, String key, String value) {
+    TextView label = label(key, 12, muted, false);
+    label.setPadding(0, dp(18), 0, dp(4));
+    content.addView(label);
+    TextView text = label(value == null ? "לא זמין" : value, 15, ink, false);
+    text.setTextIsSelectable(true);
+    content.addView(text);
+  }
+
   void details(Media m) {
     Dialog sheet = new Dialog(this);
     AppPrivacy.apply(sheet.getWindow(), this);
+    LinearLayout shell = column();
+    shell.setPadding(dp(22), dp(14), dp(22), dp(16));
+    shell.setBackground(rounded(bg, 28));
+    LinearLayout heading = row();
+    heading.addView(label("פרטי המדיה", 23, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
+    heading.addView(iconButton("close", "סגירת פרטי מדיה", sheet::dismiss));
+    shell.addView(heading);
+    ScrollView scroll = new ScrollView(this);
     LinearLayout content = column();
-    content.setPadding(dp(24), dp(24), dp(24), dp(24));
-    content.setBackground(rounded(bg, 28));
-    TextView heading = label("מידע על הקובץ", 23, ink, true);
-    content.addView(heading);
-    String[][] entries = {
-      {"שם", m.name},
-      {
-        "תאריך",
-        new SimpleDateFormat("EEEE, d MMMM yyyy · HH:mm", new Locale("he")).format(new Date(m.date))
-      },
-      {"סוג", m.mime},
-      {"גודל", android.text.format.Formatter.formatFileSize(this, m.size)},
-      {"מידות", m.width + " × " + m.height},
-      {"תיקייה", m.path == null ? "לא ידועה" : m.path}
-    };
-    for (String[] entry : entries) {
-      TextView key = label(entry[0], 12, muted, false);
-      key.setPadding(0, dp(18), 0, dp(4));
-      content.addView(key);
-      TextView value = label(entry[1], 15, ink, false);
-      value.setTextIsSelectable(true);
-      content.addView(value);
-    }
-    sheet.setContentView(content);
+    content.setPadding(dp(2), 0, dp(2), dp(16));
+    scroll.addView(content);
+    shell.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+    detailEntry(content, "שם", m.name);
+    detailEntry(
+        content,
+        "תאריך בספרייה",
+        new SimpleDateFormat("EEEE, d MMMM yyyy · HH:mm", new Locale("he"))
+            .format(new Date(m.date)));
+    detailEntry(content, "סוג", m.mime);
+    detailEntry(content, "גודל", android.text.format.Formatter.formatFileSize(this, m.size));
+    detailEntry(
+        content, "מידות", m.width > 0 && m.height > 0 ? m.width + " × " + m.height : "לא זמינות");
+    detailEntry(content, "תיקייה", m.path == null ? "לא ידועה" : m.path);
+    LinearLayout extra = column();
+    extra.addView(text("קורא נתוני צילום מהמכשיר…", 13));
+    content.addView(extra);
+    sheet.setContentView(shell);
     sheet.getWindow().setWindowAnimations(motion() ? R.style.GallerySheetMotion : 0);
     sheet.show();
     sheet.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
     sheet.getWindow().setGravity(Gravity.BOTTOM);
-    sheet.getWindow().setLayout(-1, -2);
+    sheet.getWindow().setLayout(-1, (int) (getResources().getDisplayMetrics().heightPixels * .85f));
+    io.execute(
+        () -> {
+          Map<String, String> data = MediaDetails.read(this, m);
+          runOnUiThread(
+              () -> {
+                if (destroyed || !sheet.isShowing()) return;
+                extra.removeAllViews();
+                for (var entry : data.entrySet())
+                  detailEntry(extra, entry.getKey(), entry.getValue());
+                extra.addView(
+                    text(
+                        "הנתונים נקראים מקומית; קובץ המקור אינו משתנה. בשיתוף המקור עשויים להיכלל"
+                            + " פרטי צילום ומיקום.",
+                        12));
+              });
+        });
   }
 
   @Override

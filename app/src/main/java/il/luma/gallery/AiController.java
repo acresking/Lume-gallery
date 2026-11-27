@@ -33,6 +33,10 @@ final class AiController {
           if (closed) return;
           try {
             cached.putAll(index.all());
+            ui(
+                () -> {
+                  if (a.tab.equals("albums")) a.render();
+                });
           } catch (Exception error) {
             if (!closed) ui(() -> a.message("אינדקס מקומי", error.getMessage()));
           }
