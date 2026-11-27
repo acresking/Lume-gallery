@@ -12,6 +12,10 @@ final class ZoomPhotoView extends View {
   private final ScaleGestureDetector scale;
   private final GestureDetector gestures;
 
+  boolean isZoomed() {
+    return zoom > 1.01f;
+  }
+
   ZoomPhotoView(Context context) {
     super(context);
     setBackgroundColor(Color.BLACK);

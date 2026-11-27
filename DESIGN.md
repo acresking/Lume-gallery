@@ -62,3 +62,12 @@
 רצועת זיכרונות חייבת להסתמך על תאריכים אמיתיים בלבד. כאשר יש כרטיס יחיד הוא מנצל את רוחב השורה; אין כרטיסי דוגמה, זהויות או שמות אירועים מומצאים. יש להחריג ארכיון ותאריכים עתידיים ולאפשר כיבוי. קיצורים מוצמדים ניתנים לבחירה מפורשת, עד שישה, ללא יעד שאינו ממומש.
 
 יצירת קולאז׳ מציגה מקדימה, בחירות מודגשות ופקדים גוללים במסך צר. יצוא תמיד יוצר עותק חדש; יש להסביר את חיתוך המילוי ואת גבולות הרזולוציה. חלון העורך מכבד הגנת צילום מסך. יש לשחרר תמונות ועובדי רקע בסגירה בלי למחזר תמונות בזמן יצוא פעיל. אין לשלב משירותי ענן, תמונות פרטיות מהקלטות או סמלי ספקים אחרים.
+
+
+## v10 interaction rules
+
+- Settings actions use a rounded tonal icon container, wrapped label, and trailing affordance. Toggle rows reserve independent space for a 64×48dp switch; never place lengthy text inside the native Switch.
+- Viewer actions retain five equal-width cells, two-line labels and 48dp or larger targets. Hidden filmstrip and gesture hint stay hidden when controls are restored.
+- Swipe-up details must reject zoomed, horizontal, canceled and multi-touch gestures. Explicit details remains accessible.
+- All collection tools remain reachable from the overflow menu regardless of section visibility. Visibility settings must never erase albums, indexes, media or cleanup rules.
+- Metadata is read-only, local and asynchronous. Display only available fields; do not invent location/camera/HDR information. Clipboard writes require a tap and sensitive-content marking.

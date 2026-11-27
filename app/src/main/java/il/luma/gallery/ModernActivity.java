@@ -25,6 +25,9 @@ public final class ModernActivity extends MainActivity {
   AppPrivacy privacy;
   CollageStudio collageStudio;
   PeoplePlaces peoplePlaces;
+  MediaInfoSheet infoSheet;
+  private String settingsQuery = "";
+  private String settingsCategory = "הכול";
   private String lastRenderedTab = "", lastScreenKey = "";
   private final Map<String, Parcelable> timelinePositions = new HashMap<>();
   private final Map<String, Integer> pagePositions = new HashMap<>();
@@ -175,22 +178,24 @@ public final class ModernActivity extends MainActivity {
     b.setMinHeight(dp(48));
     b.setMaxLines(2);
     b.setEllipsize(TextUtils.TruncateAt.END);
-    b.setTextSize(13);
+    b.setTextSize(14);
     b.setPadding(dp(10), dp(8), dp(10), dp(8));
-    GradientDrawable surface = rounded(card, 16);
-    surface.setStroke(dp(1), prefs.getBoolean("light", true) ? 0xffe9e4f3 : 0xff343047);
+    b.setTextColor(accent);
+    GradientDrawable surface =
+        rounded(prefs.getBoolean("light", true) ? 0xffeee8fa : 0xff30283f, 24);
     b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x226d52c7), surface, null));
     return b;
   }
 
   @Override
   void action(LinearLayout list, String s, Runnable click) {
-    LinearLayout r = row();
-    r.setPadding(dp(16), dp(12), dp(16), dp(12));
-    r.setMinimumHeight(dp(58));
-    GradientDrawable surface = rounded(card, 18);
-    surface.setStroke(dp(1), prefs.getBoolean("light", true) ? 0xffeee9f7 : 0xff312d43);
-    r.setBackground(new RippleDrawable(ColorStateList.valueOf(0x226d52c7), surface, null));
+    FrameLayout r = new FrameLayout(this);
+    r.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+    r.setPadding(dp(16), dp(14), dp(16), dp(14));
+    r.setMinimumHeight(dp(72));
+    r.setTag("settings-item:" + s);
+    r.setBackground(
+        new RippleDrawable(ColorStateList.valueOf(0x226d52c7), rounded(card, 22), null));
     String type =
         s.contains("סל")
             ? "trash"
@@ -209,11 +214,24 @@ public final class ModernActivity extends MainActivity {
     else if (s.contains("כפול")) type = "photos";
     else if (s.contains("סדר")) type = "sort";
     else if (s.contains("רענון") || s.contains("מצגת")) type = "clock";
-    r.addView(icon(type, accent, 23));
+    FrameLayout badge = new FrameLayout(this);
+    badge.setBackground(rounded(prefs.getBoolean("light", true) ? 0xfff0ebfa : 0xff30283f, 14));
+    badge.addView(
+        icon(type, accent, 22), new FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER));
+    r.addView(
+        badge,
+        new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.START | Gravity.CENTER_VERTICAL));
     TextView t = label(s, 15, ink, false);
-    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-    lp.setMargins(dp(12), 0, dp(12), 0);
+    FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER_VERTICAL);
+    lp.setMarginStart(dp(56));
+    lp.setMarginEnd(dp(24));
     r.addView(t, lp);
+    TextView chevron = label("‹", 25, muted, false);
+    chevron.setGravity(Gravity.CENTER);
+    chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+    r.addView(
+        chevron,
+        new FrameLayout.LayoutParams(dp(20), dp(32), Gravity.END | Gravity.CENTER_VERTICAL));
     r.setOnClickListener(
         v -> {
           feedback(v);
@@ -301,6 +319,7 @@ public final class ModernActivity extends MainActivity {
               }));
     else if (tab.equals("albums")) {
       header.addView(iconButton("search", "חיפוש בתמונות", this::searchDialog));
+      header.addView(iconButton("more", "כל כלי הגלריה", this::allTools));
     } else if (tab.equals("media")) {
       header.addView(iconButton("search", "חיפוש", this::searchDialog));
       header.addView(iconButton("more", "תצוגה ומיון", this::displayMenu));
@@ -359,7 +378,8 @@ public final class ModernActivity extends MainActivity {
         + ":"
         + search
         + ":"
-        + filter;
+        + filter
+        + (tab.equals("settings") ? ":" + settingsCategory : "");
   }
 
   void rememberPosition() {
@@ -408,7 +428,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 9.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 10.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -684,7 +704,8 @@ public final class ModernActivity extends MainActivity {
         && album.isEmpty()
         && customAlbum.isEmpty()
         && search.isBlank()
-        && !selecting) drawMemories(body);
+        && !selecting
+        && prefs.getBoolean("memoriesPhotos", true)) drawMemories(body);
     if (!album.isEmpty() || !collection.isEmpty() || !customAlbum.isEmpty()) {
       LinearLayout tools = row();
       tools.setPadding(dp(16), 0, dp(16), dp(6));
@@ -756,6 +777,8 @@ public final class ModernActivity extends MainActivity {
       filters.addView(chip);
     }
     quick.addView(filters);
+    quick.setVisibility(prefs.getBoolean("quickFilters", true) ? View.VISIBLE : View.GONE);
+    if (!prefs.getBoolean("quickFilters", true) && !selecting) filter = 0;
     body.addView(quick);
     timeline = new RecyclerView(this);
     int cols = prefs.getInt("columns", 3);
@@ -1210,10 +1233,20 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   void albums() {
-    int columns = albumColumns();
     LinearLayout c = scroll();
     c.setPadding(dp(18), dp(2), dp(18), dp(22));
-    drawPinnedCollections(c);
+    if (prefs.getBoolean("collectionPinned", true)) drawPinnedCollections(c);
+    if (prefs.getBoolean("collectionFolders", true)) drawDeviceFolders(c);
+    if (prefs.getBoolean("collectionAlbums", true)) drawPersonalAlbums(c);
+    if (prefs.getBoolean("collectionSmart", true)) drawSmartCollections(c);
+    if (prefs.getBoolean("memoriesCollections", true)) drawMemories(c);
+    if (prefs.getBoolean("collectionAI", true)) drawAiBanner(c);
+    if (prefs.getBoolean("collectionCreate", true))
+      action(c, "יצירת קולאז׳ · 2–6 תמונות", this::beginCollageSelection);
+    if (prefs.getBoolean("collectionUtilities", true)) drawMediaUtilities(c);
+  }
+
+  void drawAiBanner(LinearLayout c) {
     LinearLayout smart = row();
     smart.setPadding(dp(16), dp(14), dp(16), dp(14));
     GradientDrawable glow =
@@ -1252,7 +1285,9 @@ public final class ModernActivity extends MainActivity {
     LinearLayout.LayoutParams smartLp = new LinearLayout.LayoutParams(-1, -2);
     smartLp.setMargins(dp(4), dp(12), dp(4), dp(4));
     c.addView(smart, smartLp);
-    action(c, "יצירת קולאז׳ · 2–6 תמונות", this::beginCollageSelection);
+  }
+
+  void drawPersonalAlbums(LinearLayout c) {
     LinearLayout heading = row();
     TextView personal = label("האלבומים שלי", 22, ink, true);
     heading.addView(personal, new LinearLayout.LayoutParams(0, -2, 1));
@@ -1260,6 +1295,7 @@ public final class ModernActivity extends MainActivity {
     LinearLayout.LayoutParams headingLp = new LinearLayout.LayoutParams(-1, -2);
     headingLp.topMargin = dp(18);
     c.addView(heading, headingLp);
+    int columns = albumColumns();
     JSONArray albums = personalAlbums();
     LinearLayout pair = null;
     int cells = 0;
@@ -1292,14 +1328,18 @@ public final class ModernActivity extends MainActivity {
       empty.setPadding(0, dp(2), 0, dp(14));
       c.addView(empty);
     }
+  }
+
+  void drawDeviceFolders(LinearLayout c) {
     TextView folders = label("במכשיר הזה", 22, ink, true);
     folders.setPadding(0, dp(18), 0, dp(12));
     c.addView(folders);
     LinkedHashMap<String, ArrayList<Media>> paths = new LinkedHashMap<>();
     for (Media m : media)
       paths.computeIfAbsent(m.path == null ? "" : m.path, k -> new ArrayList<>()).add(m);
-    cells = 0;
-    pair = null;
+    int columns = albumColumns();
+    int cells = 0;
+    LinearLayout pair = null;
     for (var entry : paths.entrySet()) {
       if (cells % columns == 0) {
         pair = row();
@@ -1334,7 +1374,9 @@ public final class ModernActivity extends MainActivity {
       cells++;
     }
     if (cells == 0) c.addView(text("אפשר גישה לתמונות כדי להציג את תיקיות המכשיר.", 13));
-    drawSmartCollections(c);
+  }
+
+  void drawMediaUtilities(LinearLayout c) {
     TextView types = label("סוגי מדיה וארגון", 22, ink, true);
     types.setPadding(0, dp(22), 0, dp(12));
     c.addView(types);
@@ -1362,7 +1404,6 @@ public final class ModernActivity extends MainActivity {
           render();
         });
     c.addView(utilities);
-    drawMemories(c);
   }
 
   private static final String[][] PINNED = {
@@ -1966,6 +2007,56 @@ public final class ModernActivity extends MainActivity {
   void modernSettings() {
     LinearLayout c = scroll();
     c.setPadding(0, dp(4), 0, dp(28));
+    TextView intro = label("הגלריה שלך, בדרך שלך", 23, ink, true);
+    intro.setPadding(dp(24), dp(18), dp(24), dp(4));
+    c.addView(intro);
+    EditText find = new EditText(this);
+    find.setSingleLine(true);
+    find.setTextColor(ink);
+    find.setHintTextColor(muted);
+    find.setTextSize(15);
+    find.setHint("חיפוש בהגדרות");
+    find.setContentDescription("חיפוש בהגדרות");
+    find.setPadding(dp(18), dp(12), dp(18), dp(12));
+    find.setBackground(rounded(card, 24));
+    LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(-1, -2);
+    searchLp.setMargins(dp(16), dp(12), dp(16), dp(6));
+    c.addView(find, searchLp);
+    find.setText(settingsQuery);
+    HorizontalScrollView categoryScroll = new HorizontalScrollView(this);
+    categoryScroll.setHorizontalScrollBarEnabled(false);
+    LinearLayout categories = row();
+    categories.setPadding(dp(16), dp(6), dp(16), dp(6));
+    for (String category : new String[] {"הכול", "תצוגה", "אוספים", "ספרייה", "אחסון", "פרטיות"}) {
+      TextView chip = galleryChip(category, category.equals(settingsCategory));
+      chip.setOnClickListener(
+          v -> {
+            settingsCategory = category;
+            settingsQuery = "";
+            render();
+          });
+      categories.addView(chip);
+    }
+    categoryScroll.addView(categories);
+    c.addView(categoryScroll);
+    section(c, "מסך התמונות והצופה");
+    preference(c, "רגעים מעל התמונות", "memoriesPhotos", true);
+    preference(c, "מסננים מהירים מעל התמונות", "quickFilters", true);
+    preference(c, "פס תמונות ממוזערות בצופה", "viewerFilmstrip", true);
+    preference(c, "החלקה למעלה לפתיחת פרטים", "swipeDetails", true);
+    preference(c, "רמז להחלקה בצופה", "gestureHint", true);
+    preference(c, "הצגת מיקום בקובץ בחלונית הפרטים", "detailsLocation", true);
+    section(c, "התאמה אישית של אוספים");
+    preference(c, "קיצורים נעוצים", "collectionPinned", true);
+    preference(c, "תיקיות במכשיר", "collectionFolders", true);
+    preference(c, "האלבומים שלי", "collectionAlbums", true);
+    preference(c, "קטגוריות חכמות", "collectionSmart", true);
+    preference(c, "רגעים במסך האוספים", "memoriesCollections", true);
+    preference(c, "כרטיס Lume AI", "collectionAI", true);
+    preference(c, "קיצור ליצירת קולאז׳", "collectionCreate", true);
+    preference(c, "סוגי מדיה וכלי ארגון", "collectionUtilities", true);
+    action(c, "עריכת הקיצורים הנעוצים", this::editPinnedCollections);
+    action(c, "כל כלי הגלריה", this::allTools);
     section(c, "תצוגה ותנועה");
     action(
         c,
@@ -2010,7 +2101,7 @@ public final class ModernActivity extends MainActivity {
                     })
                 .show());
     preference(c, "רקע שחור במראה כהה", "oledBlack", true);
-    preference(c, "הצג זיכרונות לפי תאריכים", "showMemories", true);
+    preference(c, "הפעלת רגעים לפי תאריכים", "showMemories", true);
     preference(c, "אנימציות ומעברים", "motion", true);
     preference(c, "משוב רטט עדין בבחירה", "haptics", true);
     preference(c, "השאר מסך דולק בצפייה", "viewerAwake", true);
@@ -2124,29 +2215,63 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 9.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 10.0.0 · המדיה נשארת במכשיר\n"
                 + "חיבור לאינטרנט משמש להורדת מודלים בלבד. אין העלאת תמונות, חשבון או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
             13));
+    filterSettings(c, settingsQuery);
+    find.addTextChangedListener(
+        new TextWatcher() {
+          public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+          public void onTextChanged(CharSequence s, int start, int before, int count) {
+            settingsQuery = s.toString();
+            filterSettings(c, settingsQuery);
+          }
+
+          public void afterTextChanged(Editable s) {}
+        });
   }
 
   void section(LinearLayout c, String name) {
     TextView heading = label(name, 17, ink, true);
     heading.setPadding(dp(24), dp(24), dp(24), dp(10));
+    heading.setTag("settings-section:" + name);
     c.addView(heading);
   }
 
   void preference(LinearLayout c, String label, String key, boolean fallback) {
+    FrameLayout item = new FrameLayout(this);
+    item.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+    item.setPadding(dp(16), dp(12), dp(12), dp(12));
+    item.setMinimumHeight(dp(72));
+    item.setTag("settings-item:" + label);
+    item.setBackground(rounded(card, 22));
+    TextView name = label(label, 15, ink, false);
+    FrameLayout.LayoutParams nameLp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER_VERTICAL);
+    nameLp.setMarginEnd(dp(78));
+    item.addView(name, nameLp);
     Switch setting = new Switch(this);
-    setting.setText(label);
+    setting.setContentDescription(label);
+    setting.setButtonTintList(ColorStateList.valueOf(accent));
+    setting.setThumbTintList(
+        new ColorStateList(
+            new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
+            new int[] {accent, muted}));
+    setting.setTrackTintList(
+        new ColorStateList(
+            new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
+            new int[] {0x666d52c7, 0x44777788}));
     setting.setTextSize(15);
     setting.setTextColor(ink);
-    setting.setPadding(dp(24), dp(13), dp(24), dp(13));
+    setting.setPadding(dp(4), 0, dp(4), 0);
     setting.setChecked(prefs.getBoolean(key, fallback));
     setting.setOnCheckedChangeListener(
         (v, on) -> {
           prefs.edit().putBoolean(key, on).apply();
+          if (on && (key.equals("memoriesPhotos") || key.equals("memoriesCollections")))
+            prefs.edit().putBoolean("showMemories", true).apply();
           if (key.equals("protectScreen")) AppPrivacy.apply(getWindow(), this);
           if (key.equals("oledBlack")) {
             applyColors();
@@ -2157,7 +2282,13 @@ public final class ModernActivity extends MainActivity {
               || key.equals("autoPlaces")
               || key.equals("organizeCharging")) AutoOrganizeJob.schedule(this);
         });
-    c.addView(setting);
+    item.addView(
+        setting,
+        new FrameLayout.LayoutParams(dp(64), dp(48), Gravity.END | Gravity.CENTER_VERTICAL));
+    item.setOnClickListener(v -> setting.setChecked(!setting.isChecked()));
+    LinearLayout.LayoutParams itemLp = new LinearLayout.LayoutParams(-1, -2);
+    itemLp.setMargins(dp(16), dp(4), dp(16), dp(4));
+    c.addView(item, itemLp);
   }
 
   boolean motion() {
@@ -2295,6 +2426,7 @@ public final class ModernActivity extends MainActivity {
     ViewPager2 pager;
     LinearLayout top, tools, film;
     HorizontalScrollView strip;
+    TextView gestureHint;
     VideoView activeVideo;
     boolean controls = true;
     final Handler slideshowHandler = new Handler(Looper.getMainLooper());
@@ -2340,7 +2472,7 @@ public final class ModernActivity extends MainActivity {
       pager.setAdapter(
           new RecyclerView.Adapter<TileHolder>() {
             public TileHolder onCreateViewHolder(android.view.ViewGroup p, int type) {
-              FrameLayout frame = new FrameLayout(ModernActivity.this);
+              DetailSwipeFrame frame = new DetailSwipeFrame(ModernActivity.this);
               frame.setLayoutParams(new RecyclerView.LayoutParams(-1, -1));
               return new TileHolder(frame);
             }
@@ -2349,8 +2481,15 @@ public final class ModernActivity extends MainActivity {
               FrameLayout frame = (FrameLayout) h.itemView;
               frame.removeAllViews();
               Media m = pages.get(pos);
+              DetailSwipeFrame swipe = (DetailSwipeFrame) frame;
+              swipe.allowed = () -> prefs.getBoolean("swipeDetails", true);
+              swipe.open =
+                  () -> {
+                    if (isShowing() && pages.get(current) == m) details(m);
+                  };
               if (!m.video()) {
                 ZoomPhotoView image = new ZoomPhotoView(ModernActivity.this);
+                swipe.allowed = () -> prefs.getBoolean("swipeDetails", true) && !image.isZoomed();
                 image.setContentDescription(m.name + " · הקש להצגת פקדים או הסתרתם");
                 image.setOnClickListener(v -> toggleControls());
                 frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
@@ -2409,6 +2548,18 @@ public final class ModernActivity extends MainActivity {
       film.setGravity(Gravity.CENTER);
       strip.addView(film);
       content.addView(strip, new LinearLayout.LayoutParams(-1, dp(64)));
+      strip.setVisibility(prefs.getBoolean("viewerFilmstrip", true) ? View.VISIBLE : View.GONE);
+      TextView hint = label("החלק למעלה לפרטים", 12, 0xffb7b2c6, false);
+      gestureHint = hint;
+      hint.setGravity(Gravity.CENTER);
+      hint.setPadding(dp(12), dp(5), dp(12), dp(5));
+      hint.setContentDescription("פתיחת פרטי מדיה");
+      hint.setOnClickListener(v -> details(pages.get(current)));
+      hint.setVisibility(
+          prefs.getBoolean("gestureHint", true) && prefs.getBoolean("swipeDetails", true)
+              ? View.VISIBLE
+              : View.GONE);
+      content.addView(hint);
       tools = row();
       tools.setPadding(dp(8), dp(12), dp(8), dp(16));
       content.addView(tools);
@@ -2443,9 +2594,13 @@ public final class ModernActivity extends MainActivity {
 
     void toggleControls() {
       controls = !controls;
-      for (View view : new View[] {top, tools, strip}) {
+      for (View view : new View[] {top, tools, strip, gestureHint}) {
         view.animate().cancel();
         if (controls) {
+          if (view == strip && !prefs.getBoolean("viewerFilmstrip", true)) continue;
+          if (view == gestureHint
+              && (!prefs.getBoolean("gestureHint", true)
+                  || !prefs.getBoolean("swipeDetails", true))) continue;
           view.setVisibility(View.VISIBLE);
           view.setAlpha(motion() ? 0 : 1);
           if (motion()) view.animate().alpha(1).setDuration(160).start();
@@ -2471,7 +2626,9 @@ public final class ModernActivity extends MainActivity {
     void whiteTool(LinearLayout row, String icon, String caption, Runnable click) {
       LinearLayout t = column();
       t.setGravity(Gravity.CENTER);
-      t.setMinimumHeight(dp(56));
+      t.setMinimumHeight(dp(64));
+      t.setBackground(
+          new RippleDrawable(ColorStateList.valueOf(0x33bba6f7), rounded(0xff18171e, 20), null));
       t.setPadding(dp(3), dp(4), dp(3), dp(4));
       ImageView image = icon(icon, Color.WHITE, 23);
       t.addView(image);
@@ -2485,7 +2642,9 @@ public final class ModernActivity extends MainActivity {
       t.setContentDescription(caption);
       t.setFocusable(true);
       t.setOnClickListener(v -> click.run());
-      row.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
+      LinearLayout.LayoutParams toolLp = new LinearLayout.LayoutParams(0, -2, 1);
+      toolLp.setMargins(dp(3), 0, dp(3), 0);
+      row.addView(t, toolLp);
     }
 
     void refresh() {
@@ -2655,56 +2814,127 @@ public final class ModernActivity extends MainActivity {
   }
 
   void details(Media m) {
-    Dialog sheet = new Dialog(this);
-    AppPrivacy.apply(sheet.getWindow(), this);
-    LinearLayout shell = column();
-    shell.setPadding(dp(22), dp(14), dp(22), dp(16));
-    shell.setBackground(rounded(bg, 28));
-    LinearLayout heading = row();
-    heading.addView(label("פרטי המדיה", 23, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
-    heading.addView(iconButton("close", "סגירת פרטי מדיה", sheet::dismiss));
-    shell.addView(heading);
-    ScrollView scroll = new ScrollView(this);
-    LinearLayout content = column();
-    content.setPadding(dp(2), 0, dp(2), dp(16));
-    scroll.addView(content);
-    shell.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-    detailEntry(content, "שם", m.name);
-    detailEntry(
-        content,
-        "תאריך בספרייה",
-        new SimpleDateFormat("EEEE, d MMMM yyyy · HH:mm", new Locale("he"))
-            .format(new Date(m.date)));
-    detailEntry(content, "סוג", m.mime);
-    detailEntry(content, "גודל", android.text.format.Formatter.formatFileSize(this, m.size));
-    detailEntry(
-        content, "מידות", m.width > 0 && m.height > 0 ? m.width + " × " + m.height : "לא זמינות");
-    detailEntry(content, "תיקייה", m.path == null ? "לא ידועה" : m.path);
-    LinearLayout extra = column();
-    extra.addView(text("קורא נתוני צילום מהמכשיר…", 13));
-    content.addView(extra);
-    sheet.setContentView(shell);
-    sheet.getWindow().setWindowAnimations(motion() ? R.style.GallerySheetMotion : 0);
-    sheet.show();
-    sheet.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-    sheet.getWindow().setGravity(Gravity.BOTTOM);
-    sheet.getWindow().setLayout(-1, (int) (getResources().getDisplayMetrics().heightPixels * .85f));
-    io.execute(
-        () -> {
-          Map<String, String> data = MediaDetails.read(this, m);
-          runOnUiThread(
-              () -> {
-                if (destroyed || !sheet.isShowing()) return;
-                extra.removeAllViews();
-                for (var entry : data.entrySet())
-                  detailEntry(extra, entry.getKey(), entry.getValue());
-                extra.addView(
-                    text(
-                        "הנתונים נקראים מקומית; קובץ המקור אינו משתנה. בשיתוף המקור עשויים להיכלל"
-                            + " פרטי צילום ומיקום.",
-                        12));
-              });
-        });
+    if (infoSheet != null) infoSheet.dismiss();
+    infoSheet = new MediaInfoSheet(this, m);
+    infoSheet.show();
+  }
+
+  void filterSettings(LinearLayout c, String query) {
+    String needle = query.trim().toLowerCase(Locale.ROOT);
+    View heading = null;
+    boolean matched = false;
+    boolean categoryMatch = true;
+    for (int i = 0; i < c.getChildCount(); i++) {
+      View v = c.getChildAt(i);
+      String tag = v.getTag() instanceof String ? (String) v.getTag() : "";
+      if (tag.startsWith("settings-section:")) {
+        if (heading != null) heading.setVisibility(matched ? View.VISIBLE : View.GONE);
+        heading = v;
+        String name = tag.substring("settings-section:".length());
+        categoryMatch =
+            !needle.isEmpty()
+                || settingsCategory.equals("הכול")
+                || (settingsCategory.equals("תצוגה")
+                    && (name.contains("תצוגה") || name.contains("הצופה")))
+                || (settingsCategory.equals("אוספים") && name.contains("אוספים"))
+                || (settingsCategory.equals("ספרייה")
+                    && (name.contains("הספרייה") || name.contains("אוטומטי")))
+                || (settingsCategory.equals("אחסון") && name.contains("אחסון"))
+                || (settingsCategory.equals("פרטיות")
+                    && (name.contains("פרטיות") || name.contains("אבטחה")));
+        matched = false;
+      } else if (tag.startsWith("settings-item:")) {
+        boolean show =
+            categoryMatch
+                && (needle.isEmpty()
+                    || tag.toLowerCase(Locale.ROOT).contains(needle)
+                    || (heading != null
+                        && heading.getTag().toString().toLowerCase(Locale.ROOT).contains(needle)));
+        v.setVisibility(show ? View.VISIBLE : View.GONE);
+        matched |= show;
+      } else if (heading != null) {
+        boolean show =
+            categoryMatch
+                && (needle.isEmpty()
+                    || heading.getTag().toString().toLowerCase(Locale.ROOT).contains(needle));
+        v.setVisibility(show ? View.VISIBLE : View.GONE);
+        matched |= show;
+      }
+    }
+    if (heading != null) heading.setVisibility(matched ? View.VISIBLE : View.GONE);
+  }
+
+  void allTools() {
+    String[] names = {
+      "אנשים",
+      "מקומות",
+      "מועדפים",
+      "סרטונים",
+      "צילומי מסך",
+      "WhatsApp",
+      "אלבום חדש",
+      "קולאז׳",
+      "מודלים וכלי AI",
+      "כפולים זהים",
+      "ארכיון",
+      "סל שחזור",
+      "ניקוי אוטומטי",
+      "התאמת התצוגה"
+    };
+    new PrivacyDialogBuilder(this)
+        .setTitle("כל כלי הגלריה")
+        .setItems(
+            names,
+            (d, n) -> {
+              switch (n) {
+                case 0:
+                  openPinned("people");
+                  break;
+                case 1:
+                  openPinned("places");
+                  break;
+                case 2:
+                  openCollection("favorites");
+                  break;
+                case 3:
+                  openCollection("videos");
+                  break;
+                case 4:
+                  openCollection("screenshots");
+                  break;
+                case 5:
+                  openCollection("whatsapp");
+                  break;
+                case 6:
+                  newAlbum(Collections.emptyList());
+                  break;
+                case 7:
+                  beginCollageSelection();
+                  break;
+                case 8:
+                  if (ai != null) ai.showManager();
+                  break;
+                case 9:
+                  findDuplicates();
+                  break;
+                case 10:
+                  openCollection("archive");
+                  break;
+                case 11:
+                  trashScreen();
+                  break;
+                case 12:
+                  tab = "rules";
+                  render();
+                  break;
+                case 13:
+                  settingsQuery = "";
+                  tab = "settings";
+                  render();
+                  break;
+              }
+            })
+        .show();
   }
 
   @Override
@@ -2750,6 +2980,7 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   protected void onDestroy() {
+    if (infoSheet != null) infoSheet.dismiss();
     if (collageStudio != null) collageStudio.dismiss();
     if (privacy != null) privacy.close();
     ui.removeCallbacksAndMessages(null);

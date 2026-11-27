@@ -44,7 +44,18 @@ final class MediaDetails {
   }
 
   static void readPhoto(Context c, MainActivity.Media media, Map<String, String> out) {
-    try (InputStream input = c.getContentResolver().openInputStream(media.uri)) {
+    android.net.Uri source = media.uri;
+    boolean location = c.getSharedPreferences("luma", 0).getBoolean("detailsLocation", true);
+    if (location
+        && "media".equals(source.getAuthority())
+        && c.checkSelfPermission(android.Manifest.permission.ACCESS_MEDIA_LOCATION)
+            == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      try {
+        source = android.provider.MediaStore.setRequireOriginal(source);
+      } catch (Exception ignored) {
+      }
+    }
+    try (InputStream input = open(c, source, media.uri)) {
       if (input == null) return;
       ExifInterface exif = new ExifInterface(input);
       add(
@@ -61,9 +72,46 @@ final class MediaDetails {
       double focal = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH, 0);
       if (focal > 0) add(out, "אורך מוקד", String.format(Locale.ROOT, "%.1f mm", focal));
       add(out, "תאריך צילום בקובץ", exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+      String[][] fields = {
+        {"תוכנה", ExifInterface.TAG_SOFTWARE},
+        {"זמן דיגיטציה", ExifInterface.TAG_DATETIME_DIGITIZED},
+        {"אזור זמן צילום", ExifInterface.TAG_OFFSET_TIME_ORIGINAL},
+        {"מוקד שקול 35 מ״מ", ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM},
+        {"כיוון תמונה (EXIF)", ExifInterface.TAG_ORIENTATION}
+      };
+      for (String[] field : fields) add(out, field[0], exif.getAttribute(field[1]));
+      if (exif.hasAttribute(ExifInterface.TAG_WHITE_BALANCE))
+        add(
+            out,
+            "איזון לבן",
+            exif.getAttributeInt(ExifInterface.TAG_WHITE_BALANCE, 0) == 0 ? "אוטומטי" : "ידני");
+      if (exif.hasAttribute(ExifInterface.TAG_FLASH))
+        add(
+            out,
+            "מבזק",
+            (exif.getAttributeInt(ExifInterface.TAG_FLASH, 0) & 1) == 1 ? "הופעל" : "לא הופעל");
+      if (location) {
+        double[] gps = exif.getLatLong();
+        if (gps != null)
+          add(out, "מיקום GPS", String.format(Locale.ROOT, "%.6f, %.6f", gps[0], gps[1]));
+        double altitude = exif.getAltitude(Double.NaN);
+        if (Double.isFinite(altitude))
+          add(out, "גובה", String.format(Locale.ROOT, "%.1f m", altitude));
+      }
       if (out.isEmpty()) add(out, "נתוני צילום", "לא נמצאו נתוני מצלמה בקובץ הזה");
     } catch (Exception error) {
       add(out, "נתוני צילום", "לא ניתן לקרוא את נתוני הצילום בקובץ הזה");
+    }
+  }
+
+  private static InputStream open(Context c, android.net.Uri source, android.net.Uri fallback)
+      throws IOException {
+    try {
+      return c.getContentResolver().openInputStream(source);
+    } catch (Exception error) {
+      if (!source.equals(fallback)) return c.getContentResolver().openInputStream(fallback);
+      if (error instanceof IOException) throw (IOException) error;
+      throw new IOException(error);
     }
   }
 
@@ -96,7 +144,16 @@ final class MediaDetails {
       for (int i = 0; i < extractor.getTrackCount(); i++) {
         MediaFormat f = extractor.getTrackFormat(i);
         String mime = f.getString(MediaFormat.KEY_MIME);
-        if (mime == null || !mime.startsWith("video/")) continue;
+        if (mime == null) continue;
+        if (mime.startsWith("audio/")) {
+          add(out, "קידוד שמע", mime);
+          if (f.containsKey(MediaFormat.KEY_SAMPLE_RATE))
+            add(out, "קצב דגימת שמע", f.getInteger(MediaFormat.KEY_SAMPLE_RATE) + " Hz");
+          if (f.containsKey(MediaFormat.KEY_CHANNEL_COUNT))
+            add(out, "ערוצי שמע", String.valueOf(f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)));
+          continue;
+        }
+        if (!mime.startsWith("video/")) continue;
         add(
             out,
             "קידוד וידאו",
@@ -116,7 +173,6 @@ final class MediaDetails {
               out,
               "רזולוציית וידאו",
               f.getInteger(MediaFormat.KEY_WIDTH) + " × " + f.getInteger(MediaFormat.KEY_HEIGHT));
-        break;
       }
     } catch (Exception ignored) {
     } finally {

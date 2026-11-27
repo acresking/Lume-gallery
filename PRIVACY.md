@@ -33,3 +33,8 @@
 רצועת הזיכרונות מחושבת מקומית מתאריך המדיה שכבר זמין בגלריה (צילום כשזמין, אחרת תאריך הוספה). אין חיזוי אירועים או שמות אנשים, אין סנכרון Google Photos ואין הודעות או התראות חדשות. ניתן לכבות את תצוגת הרצועה. העדפות קיצורים נשמרות במכשיר כמזהי יעדים בלבד.
 
 עורך קולאז׳ קורא רק את התמונות שנבחרו ומעבד עותקים מוגבלים בזיכרון. שמירה מפורשת יוצרת קובץ חדש בספריית MediaStore הרגילה; הוא אינו כספת מוצפנת ועשוי להיות זמין ליישומי גלריה מורשים אחרים. נתוני EXIF ומיקום אינם מועתקים לקולאז׳, אך תוכן התמונות עצמו נשאר בתוצר. המקורות נשארים במקומם. אין העלאה, מודל מרוחק או שינוי הרשאות לצורך יצירה זו.
+
+
+### v10 metadata controls
+
+The details sheet reads capture/file/audio metadata locally. Its location toggle prevents GPS extraction in that reader. On MediaStore URIs, original GPS is requested only after Android ACCESS_MEDIA_LOCATION permission; failure falls back to the accessible URI. No geocoder or map service is contacted. This toggle controls the details sheet only: automatic Places organization has its own existing setting. A metadata value reaches the clipboard only after an explicit copy tap, with Android's sensitive clipboard flag. Sharing originals can still include embedded metadata.
