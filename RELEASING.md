@@ -19,3 +19,6 @@ Permanent URL after publication:
 https://github.com/acresking/Lume-gallery/releases/latest/download/LumeGallery.apk
 
 CI debug artifacts expire and are not the permanent installation link. No signing key is uploaded to CI by this project. Publishing a signed binary requires an authenticated owner release upload.
+
+
+For v14 also run EditorPipelineTest: non-destructive photo pixels/alpha, normalized marks, history branching, clipped/speed-adjusted concatenation, actual Media3 effect composition, muted/audio-only outputs, PCM gain and time-based fades. On a phone check a real H.264/H.265 export, audio/video sync at 0.25/2/4x, mixed portrait/landscape concatenation, caption placement, camera HDR-to-SDR, M4A output, cancellation and all installed local-AI tools. The automated build does not replace these device checks.

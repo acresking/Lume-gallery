@@ -100,3 +100,8 @@ Pinch density changes must keep the current scroll anchor and saved column prefe
 - Pinch feedback transforms drawing, not touch coordinates or view alpha. Preserve the focused photo vertically, morph stable cells toward their new bounds, cancel stale morphs during recycling and honor reduced motion.
 - Dense grids use smaller thumbnail requests; cancel stale requests and upgrade quality when zooming in. Never overwrite a larger cached image with a late compact result. Keep all date/group/filter membership based on original media.
 - First-video styling uses a restrained black photo background, compact header/dock and minimal borders. Preserve an explicitly chosen light/system theme. Never commit reference frames or private media.
+
+
+## Editor contracts (v14)
+
+Use one recipe snapshot for preview, undo and export. Photo marks use normalized coordinates. Save copies; never overwrite sources. Keep top-level save/close and undo reachable; tool groups scroll horizontally and controls vertically with 48dp targets. Surface expensive AI operations as busy/cancellable, require explicit model setup and show errors. AI results create a bounded checkpoint; do not retain unlimited full-resolution bitmaps. Do not advertise temporal video AI from single-frame inference. Video speed must alter both video timestamps and audio timing during export, with the same speed/pitch choice in playback. Caption, crop and color changes must be exported through Media3, not just painted over the preview UI. Use app-private temporary inputs and remove old files; never commit private media or signing material.

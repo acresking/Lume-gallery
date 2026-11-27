@@ -31,6 +31,9 @@ public final class ModernActivity extends MainActivity {
   AutomaticPeople automaticPeople;
   String viewMode = "photos";
   SubjectStudio subjectStudio;
+  PhotoStudio photoStudio;
+  VideoStudio videoStudio;
+  private java.util.function.Consumer<ArrayList<Uri>> editorPicker;
   private String settingsQuery = "";
   private String settingsCategory = "הכול";
   private String lastRenderedTab = "", lastScreenKey = "";
@@ -108,6 +111,7 @@ public final class ModernActivity extends MainActivity {
                 }
                 splash.animate().alpha(0).setDuration(170).withEndAction(splash::remove).start();
               });
+    io.execute(() -> EditorFiles.clean(this));
     ai = new AiController(this);
     peoplePlaces = new PeoplePlaces(this);
     automaticPeople = new AutomaticPeople(this);
@@ -462,7 +466,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 13.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 14.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -2500,7 +2504,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 13.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 14.0.0 · המדיה נשארת במכשיר\n"
                 + "האינטרנט משמש להורדת מודלים, לשמות מקומות ולמפות OpenStreetMap בתוך האפליקציה."
                 + " אין העלאת תמונות או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
@@ -2700,12 +2704,32 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   void videoEditor(Media media) {
-    new VideoStudio(this, media).show();
+    if (videoStudio != null) videoStudio.dismiss();
+    videoStudio = new VideoStudio(this, media);
+    videoStudio.show();
   }
 
   @Override
   void photoEditor(Media media) {
-    new PhotoStudio(this, media).show();
+    openPhotoWork(media, "adjust");
+  }
+
+  void openPhotoWork(Media media, String mode) {
+    if (photoStudio != null) photoStudio.dismiss();
+    photoStudio = new PhotoStudio(this, media);
+    photoStudio.mode = mode;
+    photoStudio.show();
+  }
+
+  void pickEditorVideos(java.util.function.Consumer<ArrayList<Uri>> result) {
+    editorPicker = result;
+    startActivityForResult(
+        new Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .setType("video/*")
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+        71);
   }
 
   @Override
@@ -3247,6 +3271,20 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   protected void onActivityResult(int request, int result, Intent data) {
+    if (request == 71) {
+      java.util.function.Consumer<ArrayList<Uri>> callback = editorPicker;
+      editorPicker = null;
+      ArrayList<Uri> selected = new ArrayList<>();
+      if (result == RESULT_OK && data != null) {
+        if (data.getClipData() != null)
+          for (int i = 0; i < data.getClipData().getItemCount(); i++)
+            selected.add(data.getClipData().getItemAt(i).getUri());
+        else if (data.getData() != null) selected.add(data.getData());
+      }
+      selected.removeIf(uri -> !"content".equals(uri.getScheme()));
+      if (callback != null && !selected.isEmpty()) callback.accept(selected);
+      return;
+    }
     if (request == 32 && result == RESULT_OK) {
       selected.clear();
       selecting = false;
@@ -3284,6 +3322,8 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   protected void onStop() {
+    if (videoStudio != null && videoStudio.isShowing() && videoStudio.preview != null)
+      videoStudio.preview.pause();
     if (automaticPeople != null) automaticPeople.pause();
     if (mapSheet != null && mapSheet.isShowing()) mapSheet.map.onPause();
     if (privacy != null) privacy.background();
@@ -3292,6 +3332,9 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   protected void onDestroy() {
+    editorPicker = null;
+    if (photoStudio != null) photoStudio.dismiss();
+    if (videoStudio != null) videoStudio.dismiss();
     if (root != null) cancelThumbnails(root);
     if (automaticPeople != null) automaticPeople.close();
     if (mapSheet != null) mapSheet.dismiss();

@@ -18,3 +18,7 @@ https://github.com/microsoft/onnxruntime/blob/main/LICENSE
 https://android.googlesource.com/platform/frameworks/support/+/androidx-main/LICENSE.txt
 
 Map rendering: osmdroid 6.1.20, Apache License 2.0. Source: https://github.com/osmdroid/osmdroid . Map data © OpenStreetMap contributors (ODbL): https://www.openstreetmap.org/copyright . Standard raster tile policy: https://operations.osmfoundation.org/policies/tiles/ . The app identifies itself with a project URL, uses HTTPS and a bounded cache, and does not offer bulk/offline-region downloads.
+
+Media3 1.5.1 Transformer, Effect, ExoPlayer and UI are used for local video
+editing, playback and audio extraction, licensed under Apache-2.0.
+https://github.com/androidx/media/blob/1.5.1/LICENSE
