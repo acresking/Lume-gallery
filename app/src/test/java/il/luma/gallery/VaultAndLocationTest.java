@@ -181,7 +181,9 @@ public class VaultAndLocationTest {
       assertEquals(4, manager.getSpanSizeLookup().getSpanSize(0));
       pinch.change(1);
       pinch.change(1);
-      assertEquals(5, manager.getSpanCount());
+      assertEquals("months", a.viewMode);
+      assertTrue(grid.getAdapter() instanceof CalendarOverview);
+      assertEquals(2, manager.getSpanCount());
       for (int i = 0; i < 5; i++) pinch.change(-1);
       assertEquals(2, manager.getSpanCount());
     }

@@ -27,6 +27,10 @@ public final class ModernActivity extends MainActivity {
   PeoplePlaces peoplePlaces;
   final Map<String, String> placeDisplayNames = new java.util.concurrent.ConcurrentHashMap<>();
   MediaInfoSheet infoSheet;
+  PlacesMap mapSheet;
+  AutomaticPeople automaticPeople;
+  String viewMode = "photos";
+  SubjectStudio subjectStudio;
   private String settingsQuery = "";
   private String settingsCategory = "הכול";
   private String lastRenderedTab = "", lastScreenKey = "";
@@ -53,6 +57,8 @@ public final class ModernActivity extends MainActivity {
     android.content.SharedPreferences p = getSharedPreferences("luma", 0);
     if (!p.contains("designV2"))
       p.edit().putBoolean("light", true).putBoolean("designV2", true).apply();
+    if (!p.contains("organizeCharging")) p.edit().putBoolean("organizeCharging", false).apply();
+    viewMode = p.getString("galleryViewMode", "photos");
     archived = new HashSet<>(p.getStringSet("archive", Collections.emptySet()));
     String theme = p.getString("themeMode", "");
     if (!theme.isEmpty())
@@ -90,6 +96,7 @@ public final class ModernActivity extends MainActivity {
               });
     ai = new AiController(this);
     peoplePlaces = new PeoplePlaces(this);
+    automaticPeople = new AutomaticPeople(this);
     privacy = new AppPrivacy(this);
     try {
       PrivateData.migrateMetadata(this);
@@ -273,7 +280,9 @@ public final class ModernActivity extends MainActivity {
   @Override
   void render() {
     if (body == null) return;
+    if (automaticPeople != null) automaticPeople.maybe();
     rememberPosition();
+    if (selecting) viewMode = "photos";
     String currentKey = screenKey();
     body.removeAllViews();
     header.removeAllViews();
@@ -379,6 +388,8 @@ public final class ModernActivity extends MainActivity {
         + ":"
         + search
         + ":"
+        + viewMode
+        + ":"
         + filter
         + (tab.equals("settings") ? ":" + settingsCategory : "");
   }
@@ -429,7 +440,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 11.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 12.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -750,6 +761,8 @@ public final class ModernActivity extends MainActivity {
       chip.setOnClickListener(
           v -> {
             grouping = group[0];
+            viewMode = "photos";
+            prefs.edit().putString("galleryViewMode", viewMode).apply();
             render();
           });
       groupingRow.addView(chip);
@@ -784,7 +797,7 @@ public final class ModernActivity extends MainActivity {
     if (!prefs.getBoolean("quickFilters", true) && !selecting) filter = 0;
     body.addView(quick);
     timeline = new RecyclerView(this);
-    int cols = prefs.getInt("columns", 3);
+    int cols = viewMode.equals("photos") ? prefs.getInt("columns", 3) : 2;
     GridLayoutManager layout = new GridLayoutManager(this, cols);
     layout.setSpanSizeLookup(
         new GridLayoutManager.SpanSizeLookup() {
@@ -900,6 +913,11 @@ public final class ModernActivity extends MainActivity {
               Calendar target = Calendar.getInstance();
               target.clear();
               target.set(year, month, day, 12, 0);
+              if (!viewMode.equals("photos")) {
+                viewMode = "photos";
+                prefs.edit().putString("galleryViewMode", viewMode).apply();
+                render();
+              }
               int position = nearestDatePosition(target.getTimeInMillis());
               if (position >= 0 && timeline != null)
                 ((GridLayoutManager) timeline.getLayoutManager())
@@ -928,8 +946,63 @@ public final class ModernActivity extends MainActivity {
     return new SimpleDateFormat("d בMMMM yyyy", new Locale("he")).format(date);
   }
 
+  boolean densityOverview(int direction) {
+    if (selecting) return false;
+    rememberPosition();
+    if (viewMode.equals("photos")) {
+      if (direction <= 0 || prefs.getInt("columns", 3) < 5) return false;
+      viewMode = "months";
+    } else if (viewMode.equals("months")) viewMode = direction > 0 ? "years" : "photos";
+    else viewMode = direction < 0 ? "months" : "years";
+    prefs.edit().putString("galleryViewMode", viewMode).apply();
+    updateTimeline();
+    lastScreenKey = screenKey();
+    if (motion()) {
+      timeline.setAlpha(.75f);
+      timeline.animate().alpha(1).setDuration(180).start();
+    }
+    return true;
+  }
+
+  void openOverviewDate(long date) {
+    viewMode = viewMode.equals("years") ? "months" : "photos";
+    prefs.edit().putString("galleryViewMode", viewMode).apply();
+    grouping = "days";
+    render();
+    int position =
+        timeline.getAdapter() instanceof CalendarOverview
+            ? ((CalendarOverview) timeline.getAdapter()).nearest(date)
+            : nearestDatePosition(date);
+    if (position >= 0)
+      ((GridLayoutManager) timeline.getLayoutManager()).scrollToPositionWithOffset(position, 0);
+  }
+
   void updateTimeline() {
     visible = filtered();
+    if (!viewMode.equals("photos") && !selecting && timeline != null) {
+      timelineItems.clear();
+      dateGroups.clear();
+      GridLayoutManager layout = (GridLayoutManager) timeline.getLayoutManager();
+      layout.setSpanSizeLookup(new GridLayoutManager.DefaultSpanSizeLookup());
+      layout.setSpanCount(2);
+      timeline.setAdapter(new CalendarOverview(this, visible, viewMode.equals("years")));
+      if (status != null)
+        status.setText(
+            (viewMode.equals("years") ? "תצוגת שנים" : "תצוגת חודשים")
+                + " · צבוט להתקרבות או התרחקות");
+      return;
+    }
+    if (timeline != null) {
+      GridLayoutManager layout = (GridLayoutManager) timeline.getLayoutManager();
+      layout.setSpanCount(prefs.getInt("columns", 3));
+      layout.setSpanSizeLookup(
+          new GridLayoutManager.SpanSizeLookup() {
+            public int getSpanSize(int p) {
+              return timelineItems.get(p) instanceof String ? layout.getSpanCount() : 1;
+            }
+          });
+      if (timeline.getAdapter() != timelineAdapter) timeline.setAdapter(timelineAdapter);
+    }
     timelineItems.clear();
     dateGroups.clear();
     String last = "";
@@ -2048,6 +2121,23 @@ public final class ModernActivity extends MainActivity {
     categoryScroll.addView(categories);
     c.addView(categoryScroll);
     section(c, "מסך התמונות והצופה");
+    action(
+        c,
+        "סוג התצוגה · תמונות, חודשים ושנים",
+        () ->
+            new PrivacyDialogBuilder(this)
+                .setTitle("סוג תצוגת הספרייה")
+                .setSingleChoiceItems(
+                    new String[] {"רשת תמונות", "כרטיסי חודשים", "כרטיסי שנים"},
+                    viewMode.equals("years") ? 2 : viewMode.equals("months") ? 1 : 0,
+                    (d, n) -> {
+                      viewMode = new String[] {"photos", "months", "years"}[n];
+                      prefs.edit().putString("galleryViewMode", viewMode).apply();
+                      d.dismiss();
+                      render();
+                    })
+                .show());
+    preference(c, "מפות רשת בתוך האפליקציה · OpenStreetMap", "mapNetwork", true);
     preference(c, "צביטה לשינוי צפיפות התמונות", "pinchGrid", true);
     preference(c, "רגעים מעל התמונות", "memoriesPhotos", true);
     preference(c, "מסננים מהירים מעל התמונות", "quickFilters", true);
@@ -2092,7 +2182,12 @@ public final class ModernActivity extends MainActivity {
                 .setItems(
                     new String[] {"2 · גדולות", "3 · מאוזן", "4 · קומפקטי", "5 · צפוף"},
                     (d, n) -> {
-                      prefs.edit().putInt("columns", n + 2).apply();
+                      prefs
+                          .edit()
+                          .putInt("columns", n + 2)
+                          .putString("galleryViewMode", "photos")
+                          .apply();
+                      viewMode = "photos";
                       render();
                     })
                 .show());
@@ -2190,6 +2285,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "סידור אוטומטי");
     preference(
         c, "שמות עיר ומדינה · שירות המיקום של Android, עשוי להשתמש ברשת", "placeNames", true);
+    preference(c, "סידור אנשים אוטומטי בזמן שימוש", "autoOrganizeForeground", true);
     preference(c, "אנשים — סריקה אוטומטית במכשיר", "autoPeople", true);
     preference(c, "מקומות — קריאת GPS אוטומטית", "autoPlaces", true);
     preference(c, "עיבוד רק בזמן טעינה", "organizeCharging", true);
@@ -2230,9 +2326,9 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 11.0.0 · המדיה נשארת במכשיר\n"
-                + "האינטרנט משמש להורדת מודלים ולשמות מקומות דרך Android. מפה נפתחת בלחיצה. אין"
-                + " העלאת תמונות או מודעות.\n"
+            "Lume Gallery 12.0.0 · המדיה נשארת במכשיר\n"
+                + "האינטרנט משמש להורדת מודלים, לשמות מקומות ולמפות OpenStreetMap בתוך האפליקציה."
+                + " אין העלאת תמונות או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
             13));
@@ -2293,6 +2389,13 @@ public final class ModernActivity extends MainActivity {
             applyColors();
             root.setBackgroundColor(bg);
             render();
+          }
+          if (automaticPeople != null
+              && (key.equals("autoPeople")
+                  || key.equals("organizeCharging")
+                  || key.equals("autoOrganizeForeground"))) {
+            automaticPeople.pause();
+            automaticPeople.resume();
           }
           if (key.equals("autoPeople")
               || key.equals("autoPlaces")
@@ -2508,6 +2611,10 @@ public final class ModernActivity extends MainActivity {
                 swipe.allowed = () -> prefs.getBoolean("swipeDetails", true) && !image.isZoomed();
                 image.setContentDescription(m.name + " · הקש להצגת פקדים או הסתרתם");
                 image.setOnClickListener(v -> toggleControls());
+                image.subjectHeld =
+                    (x, y) ->
+                        SubjectStudio.begin(ModernActivity.this, m, x, y, Viewer.this::isShowing);
+                image.setContentDescription(m.name + " · לחיצה ארוכה על אדם להפרדה ושיתוף");
                 frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
                 thumbs.execute(
                     () -> {
@@ -2646,7 +2753,8 @@ public final class ModernActivity extends MainActivity {
       t.setBackground(
           new RippleDrawable(ColorStateList.valueOf(0x33bba6f7), rounded(0xff18171e, 20), null));
       t.setPadding(dp(3), dp(4), dp(3), dp(4));
-      ImageView image = icon(icon, Color.WHITE, 23);
+      ImageView image = icon(icon, icon.equals("heartFilled") ? 0xffff92b6 : Color.WHITE, 23);
+      t.setSelected(icon.equals("heartFilled"));
       t.addView(image);
       TextView name = label(caption, 11, Color.WHITE, false);
       name.setMaxLines(2);
@@ -2695,7 +2803,7 @@ public final class ModernActivity extends MainActivity {
           () -> share(new ArrayList<>(Collections.singletonList(m.uri.toString()))));
       whiteTool(
           tools,
-          "heart",
+          favorites.contains(m.uri.toString()) ? "heartFilled" : "heart",
           favorites.contains(m.uri.toString()) ? "במועדפים" : "מועדפים",
           () -> {
             if (!favorites.add(m.uri.toString())) favorites.remove(m.uri.toString());
@@ -2827,6 +2935,12 @@ public final class ModernActivity extends MainActivity {
     TextView text = label(value == null ? "לא זמין" : value, 15, ink, false);
     text.setTextIsSelectable(true);
     content.addView(text);
+  }
+
+  void openMap(double lat, double lon) {
+    if (mapSheet != null) mapSheet.dismiss();
+    mapSheet = new PlacesMap(this, lat, lon);
+    mapSheet.show();
   }
 
   void details(Media m) {
@@ -2988,18 +3102,25 @@ public final class ModernActivity extends MainActivity {
   protected void onStart() {
     super.onStart();
     if (privacy != null) privacy.resume();
+    if (automaticPeople != null) automaticPeople.resume();
+    if (mapSheet != null && mapSheet.isShowing()) mapSheet.map.onResume();
     AutoOrganizeJob.schedule(this);
     maybeRequestMediaLocation();
   }
 
   @Override
   protected void onStop() {
+    if (automaticPeople != null) automaticPeople.pause();
+    if (mapSheet != null && mapSheet.isShowing()) mapSheet.map.onPause();
     if (privacy != null) privacy.background();
     super.onStop();
   }
 
   @Override
   protected void onDestroy() {
+    if (automaticPeople != null) automaticPeople.close();
+    if (mapSheet != null) mapSheet.dismiss();
+    if (subjectStudio != null) subjectStudio.dismiss();
     if (infoSheet != null) infoSheet.dismiss();
     if (collageStudio != null) collageStudio.dismiss();
     if (privacy != null) privacy.close();

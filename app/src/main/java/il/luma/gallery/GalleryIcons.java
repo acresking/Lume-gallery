@@ -44,6 +44,7 @@ final class GalleryIcons extends Drawable {
     PATHS.put("back", "M14,5 L7,12 L14,19 M7,12 L21,12");
     PATHS.put("more", "M5,12 L5.01,12 M12,12 L12.01,12 M19,12 L19.01,12");
     PATHS.put("heart", "M12,21 L3,12 C-3,3 7,-1 12,6 C17,-1 27,3 21,12 Z");
+    PATHS.put("heartFilled", PATHS.get("heart"));
     PATHS.put(
         "share", "M12,16 L12,3 M7,8 L12,3 L17,8 M5,13 L5,20 Q5,22 7,22 L17,22 Q19,22 19,20 L19,13");
     PATHS.put("edit", "M4,16 L16,4 L20,8 L8,20 L3,21 Z M13,7 L17,11");
@@ -78,7 +79,7 @@ final class GalleryIcons extends Drawable {
   GalleryIcons(String name, int color) {
     this.name = name;
     this.color = color;
-    paint.setStyle(Paint.Style.STROKE);
+    paint.setStyle(name.equals("heartFilled") ? Paint.Style.FILL : Paint.Style.STROKE);
     paint.setStrokeWidth(1.7f);
     paint.setStrokeCap(Paint.Cap.ROUND);
     paint.setStrokeJoin(Paint.Join.ROUND);

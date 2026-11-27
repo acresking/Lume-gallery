@@ -41,7 +41,77 @@ final class PeoplePlaces {
           if (kind.equals("person")) scanPeople();
           else scanPlaces();
         });
-    c.addView(a.text(AutoOrganizeJob.status(a), 12));
+    TextView liveStatus = a.text(AutoOrganizeJob.status(a), 12);
+    c.addView(liveStatus);
+    if (kind.equals("person")
+        && (!LocalModels.installed(a, "faces") || !LocalModels.installed(a, "facegroup")))
+      a.action(c, "להפעלת זיהוי אנשים אוטומטי · התקן Lume AI", () -> a.ai.showManager());
+    else
+      c.addView(
+          a.text(
+              "הסידור מתעדכן אוטומטית כשהרכיבים וההרשאות זמינים. אפשר להמשיך להשתמש בגלריה.", 13));
+    LinearLayout groups = a.column();
+    c.addView(groups);
+    drawGroups(groups, kind, opened);
+    a.action(
+        c,
+        kind.equals("person") ? "אפס קבוצות פנים ונתוני קיבוץ" : "אפס מקומות",
+        () ->
+            new PrivacyDialogBuilder(a)
+                .setMessage("למחוק קבוצות ולכבות את הסידור האוטומטי שלהן? קובצי התמונות לא ישתנו.")
+                .setPositiveButton(
+                    "אפס קבוצות",
+                    (d, n) -> {
+                      if (OrganizeEngine.RUNNING.get() || a.ai.busy) {
+                        a.message("סריקה פעילה", "עצור את הסריקה או המתן לסיומה לפני איפוס קבוצות");
+                        return;
+                      }
+                      JSONArray current = a.personalAlbums();
+                      for (int i = current.length() - 1; i >= 0; i--)
+                        if (current.optJSONObject(i).optString("kind").equals(kind))
+                          current.remove(i);
+                      var edit =
+                          a.prefs
+                              .edit()
+                              .putString("personalAlbums", PrivateData.encrypt(current.toString()));
+                      if (kind.equals("person")) {
+                        edit.remove("faceProfiles")
+                            .remove("peopleScanned")
+                            .putBoolean("autoPeople", false);
+                        PrivateData.clearCovers(a);
+                      } else edit.remove("placesScanned").putBoolean("autoPlaces", false);
+                      edit.apply();
+                      AutoOrganizeJob.schedule(a);
+                      if (opened[0] != null) opened[0].dismiss();
+                      a.render();
+                    })
+                .setNegativeButton("ביטול", null)
+                .show());
+    ScrollView scroll = new ScrollView(a);
+    scroll.addView(c);
+    opened[0] = new PrivacyDialogBuilder(a).setView(scroll).setPositiveButton("סגירה", null).show();
+    android.os.Handler updates = new android.os.Handler(android.os.Looper.getMainLooper());
+    String[] previous = {a.prefs.getString("personalAlbums", "[]")};
+    Runnable refresh =
+        new Runnable() {
+          public void run() {
+            if (a.destroyed || opened[0] == null || !opened[0].isShowing()) return;
+            liveStatus.setText(AutoOrganizeJob.status(a));
+            String current = a.prefs.getString("personalAlbums", "[]");
+            if (!current.equals(previous[0])) {
+              previous[0] = current;
+              drawGroups(groups, kind, opened);
+            }
+            updates.postDelayed(this, 1800);
+          }
+        };
+    opened[0].setOnDismissListener(d -> updates.removeCallbacksAndMessages(null));
+    updates.postDelayed(refresh, 1800);
+    if (a.automaticPeople != null) a.automaticPeople.maybe();
+  }
+
+  void drawGroups(LinearLayout c, String kind, AlertDialog[] opened) {
+    c.removeAllViews();
     JSONArray albums = a.personalAlbums();
     LinearLayout row = null;
     int cells = 0;
@@ -115,43 +185,6 @@ final class PeoplePlaces {
     }
     if (cells % 2 == 1)
       row.addView(new android.view.View(a), new LinearLayout.LayoutParams(0, 1, 1));
-    a.action(
-        c,
-        kind.equals("person") ? "אפס קבוצות פנים ונתוני קיבוץ" : "אפס מקומות",
-        () ->
-            new PrivacyDialogBuilder(a)
-                .setMessage("למחוק קבוצות ולכבות את הסידור האוטומטי שלהן? קובצי התמונות לא ישתנו.")
-                .setPositiveButton(
-                    "אפס קבוצות",
-                    (d, n) -> {
-                      if (OrganizeEngine.RUNNING.get() || a.ai.busy) {
-                        a.message("סריקה פעילה", "עצור את הסריקה או המתן לסיומה לפני איפוס קבוצות");
-                        return;
-                      }
-                      JSONArray current = a.personalAlbums();
-                      for (int i = current.length() - 1; i >= 0; i--)
-                        if (current.optJSONObject(i).optString("kind").equals(kind))
-                          current.remove(i);
-                      var edit =
-                          a.prefs
-                              .edit()
-                              .putString("personalAlbums", PrivateData.encrypt(current.toString()));
-                      if (kind.equals("person")) {
-                        edit.remove("faceProfiles")
-                            .remove("peopleScanned")
-                            .putBoolean("autoPeople", false);
-                        PrivateData.clearCovers(a);
-                      } else edit.remove("placesScanned").putBoolean("autoPlaces", false);
-                      edit.apply();
-                      AutoOrganizeJob.schedule(a);
-                      if (opened[0] != null) opened[0].dismiss();
-                      a.render();
-                    })
-                .setNegativeButton("ביטול", null)
-                .show());
-    ScrollView scroll = new ScrollView(a);
-    scroll.addView(c);
-    opened[0] = new PrivacyDialogBuilder(a).setView(scroll).setPositiveButton("סגירה", null).show();
   }
 
   void scanPeople() {

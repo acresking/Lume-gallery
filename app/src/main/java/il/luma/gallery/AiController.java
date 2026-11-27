@@ -80,6 +80,7 @@ final class AiController {
                 () -> {
                   a.status.setText(a.media.size() + " פריטים · במכשיר");
                   if (manager != null && manager.isShowing()) renderManager();
+                  if (a.automaticPeople != null) a.automaticPeople.maybe();
                 });
           }
         });

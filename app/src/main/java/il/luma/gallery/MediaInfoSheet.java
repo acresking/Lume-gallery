@@ -233,12 +233,7 @@ final class MediaInfoSheet extends Dialog {
 
   void openMap() {
     if (gps == null || !host.prefs.getBoolean("detailsLocation", true)) return;
-    try {
-      host.startActivity(new Intent(Intent.ACTION_VIEW, LocationNames.mapUri(gps[0], gps[1])));
-    } catch (ActivityNotFoundException error) {
-      host.message(
-          "מפה", "לא נמצאה אפליקציית מפות במכשיר. אפשר להתקין אפליקציה שתומכת בפתיחת מיקום.");
-    }
+    host.openMap(gps[0], gps[1]);
   }
 
   void copy(String name, String value) {

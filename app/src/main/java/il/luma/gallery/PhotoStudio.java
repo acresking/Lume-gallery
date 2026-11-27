@@ -45,17 +45,14 @@ final class PhotoStudio extends Dialog {
   }
 
   Button control(String value, Runnable run) {
-    Button b = a.button(value, run);
-    b.setTextColor(Color.WHITE);
-    b.setBackground(a.rounded(0xff292b33, 18));
-    return b;
+    return StudioUI.control(a, value, run, false);
   }
 
   @Override
   protected void onCreate(Bundle state) {
     super.onCreate(state);
     LinearLayout root = column();
-    root.setBackgroundColor(0xff111216);
+    root.setBackgroundColor(StudioUI.BACKGROUND);
     root.setOnApplyWindowInsetsListener(
         (v, i) -> {
           android.graphics.Insets bars = i.getInsets(WindowInsets.Type.systemBars());
@@ -64,18 +61,20 @@ final class PhotoStudio extends Dialog {
         });
     LinearLayout top = a.row();
     top.setPadding(a.dp(16), a.dp(10), a.dp(16), a.dp(8));
-    Button cancel = control("ביטול", this::dismiss);
-    top.addView(cancel, new LinearLayout.LayoutParams(a.dp(88), -2));
+    top.addView(
+        StudioUI.close(a, this::dismiss), new LinearLayout.LayoutParams(a.dp(48), a.dp(48)));
     TextView title = text("עריכת תמונה", 17, Color.WHITE);
     title.setGravity(Gravity.CENTER);
     title.setTypeface(null, Typeface.BOLD);
     top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-    Button save = control("שמור עותק", this::save);
-    save.setTextColor(0xffa9b9ff);
-    top.addView(save, new LinearLayout.LayoutParams(a.dp(88), -2));
+    Button save = StudioUI.control(a, "שמור עותק", this::save, true);
+
+    top.addView(save, new LinearLayout.LayoutParams(a.dp(104), -2));
     root.addView(top);
     preview = new ImageView(a);
     preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    preview.setBackground(a.rounded(0xff15131c, 24));
+    preview.setClipToOutline(true);
     preview.setContentDescription("תצוגה מקדימה של העריכה");
     LinearLayout.LayoutParams photo = new LinearLayout.LayoutParams(-1, 0, 1);
     photo.setMargins(a.dp(10), a.dp(12), a.dp(10), a.dp(12));
@@ -86,6 +85,7 @@ final class PhotoStudio extends Dialog {
     ScrollView scroll = new ScrollView(a);
     panel = column();
     panel.setPadding(a.dp(24), a.dp(14), a.dp(24), a.dp(10));
+    StudioUI.panel(a, panel);
     scroll.addView(panel);
     int panelDp =
         Math.max(
@@ -104,8 +104,8 @@ final class PhotoStudio extends Dialog {
     tabScroll.addView(tabs);
     root.addView(tabScroll);
     setContentView(root);
-    getWindow().setStatusBarColor(0xff111216);
-    getWindow().setNavigationBarColor(0xff111216);
+    getWindow().setStatusBarColor(StudioUI.BACKGROUND);
+    getWindow().setNavigationBarColor(StudioUI.BACKGROUND);
     getWindow().getDecorView().setSystemUiVisibility(0);
     showPanel();
     a.thumbs.execute(
@@ -203,14 +203,14 @@ final class PhotoStudio extends Dialog {
   void slider(String name, int progress, int max, java.util.function.IntConsumer consumer) {
     LinearLayout row = a.row();
     row.addView(text(name, 13, 0xffdddddf), new LinearLayout.LayoutParams(0, -2, 1));
-    TextView value = text("" + progress, 12, 0xffa9b9ff);
+    TextView value = text("" + progress, 12, StudioUI.ACCENT);
     row.addView(value);
     panel.addView(row);
     SeekBar seek = new SeekBar(a);
     seek.setMax(max);
     seek.setProgress(progress);
-    seek.setProgressTintList(android.content.res.ColorStateList.valueOf(0xffa9b9ff));
-    seek.setThumbTintList(android.content.res.ColorStateList.valueOf(0xffa9b9ff));
+    seek.setProgressTintList(android.content.res.ColorStateList.valueOf(StudioUI.ACCENT));
+    seek.setThumbTintList(android.content.res.ColorStateList.valueOf(StudioUI.ACCENT));
     seek.setOnSeekBarChangeListener(
         new SeekBar.OnSeekBarChangeListener() {
           public void onProgressChanged(SeekBar s, int p, boolean user) {
@@ -225,7 +225,7 @@ final class PhotoStudio extends Dialog {
 
           public void onStopTrackingTouch(SeekBar s) {}
         });
-    panel.addView(seek, new LinearLayout.LayoutParams(-1, a.dp(31)));
+    panel.addView(seek, new LinearLayout.LayoutParams(-1, a.dp(48)));
   }
 
   void showPanel() {
@@ -239,18 +239,16 @@ final class PhotoStudio extends Dialog {
           {"export", "יצוא"},
           {"advanced", "כלים נוספים"}
         }) {
-      TextView t = text(item[1], 14, mode.equals(item[0]) ? 0xffa9b9ff : 0xffa3a6b0);
-      t.setGravity(Gravity.CENTER);
-      t.setPadding(0, a.dp(14), 0, a.dp(14));
-      t.setBackground(a.rounded(mode.equals(item[0]) ? 0xff292e45 : Color.TRANSPARENT, 18));
-      t.setOnClickListener(
-          v -> {
-            mode = item[0];
-            showPanel();
-          });
-      t.setMinHeight(a.dp(48));
-      t.setMaxLines(2);
-      tabs.addView(t, new LinearLayout.LayoutParams(a.dp(88), -2));
+      TextView t =
+          StudioUI.tab(
+              a,
+              item[1],
+              mode.equals(item[0]),
+              () -> {
+                mode = item[0];
+                showPanel();
+              });
+      tabs.addView(t);
     }
     if (mode.equals("adjust")) {
       slider("בהירות", Math.round(brightness) + 100, 200, p -> brightness = p - 100);
@@ -289,7 +287,7 @@ final class PhotoStudio extends Dialog {
                   refresh();
                   showPanel();
                 });
-        b.setTextColor(crop == i ? 0xffa9b9ff : Color.WHITE);
+        b.setTextColor(crop == i ? StudioUI.ACCENT : Color.WHITE);
         ratios.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
       }
       panel.addView(ratios);
@@ -322,7 +320,7 @@ final class PhotoStudio extends Dialog {
                     refresh();
                     showPanel();
                   });
-          b.setTextColor(filter == j ? 0xffa9b9ff : Color.WHITE);
+          b.setTextColor(filter == j ? StudioUI.ACCENT : Color.WHITE);
           r.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
         }
         panel.addView(r);
@@ -365,7 +363,7 @@ final class PhotoStudio extends Dialog {
                   format = n;
                   showPanel();
                 });
-        b.setTextColor(format == i ? 0xffa9b9ff : Color.WHITE);
+        b.setTextColor(format == i ? StudioUI.ACCENT : Color.WHITE);
         formats.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
       }
       panel.addView(formats);
@@ -379,7 +377,7 @@ final class PhotoStudio extends Dialog {
                   max = value;
                   showPanel();
                 });
-        b.setTextColor(max == value ? 0xffa9b9ff : Color.WHITE);
+        b.setTextColor(max == value ? StudioUI.ACCENT : Color.WHITE);
         sizes.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
       }
       panel.addView(sizes);

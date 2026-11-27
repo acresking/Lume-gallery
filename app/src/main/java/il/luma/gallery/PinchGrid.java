@@ -47,6 +47,7 @@ final class PinchGrid extends RecyclerView.SimpleOnItemTouchListener {
 
   void change(int delta) {
     if (!(grid.getLayoutManager() instanceof GridLayoutManager)) return;
+    if (host.densityOverview(delta)) return;
     GridLayoutManager manager = (GridLayoutManager) grid.getLayoutManager();
     int next = nextColumns(manager.getSpanCount(), delta);
     if (next == manager.getSpanCount()) return;

@@ -39,7 +39,45 @@ public class EditingLayoutTest {
           View.MeasureSpec.makeMeasureSpec(560, View.MeasureSpec.EXACTLY));
       root.layout(0, 0, 320, 560);
       checkRows(root);
+      capture(root, "photo-studio");
       editor.dismiss();
+    }
+  }
+
+  @Test
+  public void videoStudioControlsFitAtLargeFont() throws Exception {
+    try (var controller = Robolectric.buildActivity(ModernActivity.class).setup()) {
+      var a = controller.get();
+      a.getResources().getDisplayMetrics().scaledDensity = 1.5f;
+      MainActivity.Media m = new MainActivity.Media();
+      m.uri = android.net.Uri.parse("content://media/external/video/media/900");
+      m.name = "sample.mp4";
+      m.mime = "video/mp4";
+      m.duration = 120000;
+      VideoStudio editor = new VideoStudio(a, m);
+      editor.show();
+      ViewGroup frame = editor.getWindow().getDecorView().findViewById(android.R.id.content);
+      View root = frame.getChildAt(0);
+      root.measure(
+          View.MeasureSpec.makeMeasureSpec(320, View.MeasureSpec.EXACTLY),
+          View.MeasureSpec.makeMeasureSpec(560, View.MeasureSpec.EXACTLY));
+      root.layout(0, 0, 320, 560);
+      checkRows(root);
+      assertTrue(editor.from.getMeasuredHeight() >= 48);
+      assertTrue(editor.to.getMeasuredHeight() >= 48);
+      assertNotNull(editor.playButton);
+      capture(root, "video-studio");
+      editor.dismiss();
+    }
+  }
+
+  void capture(View view, String name) throws Exception {
+    Bitmap image = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+    view.draw(new Canvas(image));
+    java.io.File folder = new java.io.File("build/previews");
+    folder.mkdirs();
+    try (var out = new java.io.FileOutputStream(new java.io.File(folder, name + ".png"))) {
+      image.compress(Bitmap.CompressFormat.PNG, 100, out);
     }
   }
 

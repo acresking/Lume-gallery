@@ -23,6 +23,8 @@ final class VideoStudio extends Dialog {
   long duration;
   int resolution, rotation, codec;
   boolean mute;
+  Button playButton;
+  android.media.MediaPlayer preparedPlayer;
   String mode = "trim";
 
   VideoStudio(ModernActivity a, MainActivity.Media m) {
@@ -41,17 +43,14 @@ final class VideoStudio extends Dialog {
   }
 
   Button button(String s, Runnable r) {
-    Button b = a.button(s, r);
-    b.setTextColor(Color.WHITE);
-    b.setBackground(a.rounded(0xff292b33, 16));
-    return b;
+    return StudioUI.control(a, s, r, false);
   }
 
   @Override
   protected void onCreate(Bundle b) {
     super.onCreate(b);
     LinearLayout root = a.column();
-    root.setBackgroundColor(0xff111216);
+    root.setBackgroundColor(StudioUI.BACKGROUND);
     root.setOnApplyWindowInsetsListener(
         (v, i) -> {
           android.graphics.Insets bars = i.getInsets(WindowInsets.Type.systemBars());
@@ -60,22 +59,27 @@ final class VideoStudio extends Dialog {
         });
     LinearLayout top = a.row();
     top.setPadding(a.dp(16), a.dp(10), a.dp(16), a.dp(8));
-    top.addView(button("ביטול", this::dismiss), new LinearLayout.LayoutParams(a.dp(84), -2));
+    top.addView(
+        StudioUI.close(a, this::dismiss), new LinearLayout.LayoutParams(a.dp(48), a.dp(48)));
     TextView title = text("עריכת סרטון", 18);
     title.setGravity(Gravity.CENTER);
     top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-    top.addView(button("יצוא", this::export), new LinearLayout.LayoutParams(a.dp(84), -2));
+    top.addView(
+        StudioUI.control(a, "יצוא", this::export, true),
+        new LinearLayout.LayoutParams(a.dp(84), -2));
     root.addView(top);
     android.widget.FrameLayout stage = new android.widget.FrameLayout(a);
     preview = new VideoView(a);
+    stage.setBackground(a.rounded(0xff15131c, 24));
+    stage.setClipToOutline(true);
     stage.addView(preview, new android.widget.FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
     root.addView(stage, new LinearLayout.LayoutParams(-1, 0, 1));
-    MediaController controls = new MediaController(a);
-    controls.setAnchorView(preview);
-    preview.setMediaController(controls);
+    preview.setContentDescription("תצוגת הסרטון · ניגון והשהיה בכפתור שמתחת לתצוגה");
     preview.setVideoURI(media.uri);
     preview.setOnPreparedListener(
         mp -> {
+          preparedPlayer = mp;
+          mp.setVolume(mute ? 0 : 1, mute ? 0 : 1);
           duration = mp.getDuration();
           mp.setLooping(true);
           preview.seekTo(1);
@@ -87,19 +91,22 @@ final class VideoStudio extends Dialog {
           return true;
         });
     panel = a.column();
-    panel.setPadding(a.dp(24), a.dp(16), a.dp(24), a.dp(16));
+    panel.setPadding(a.dp(20), a.dp(18), a.dp(20), a.dp(18));
+    StudioUI.panel(a, panel);
     time = text("", 14);
     time.setGravity(Gravity.CENTER);
     panel.addView(time);
     panel.addView(text("תחילת הקטע", 12));
     from = new SeekBar(a);
     from.setMax(1000);
-    panel.addView(from);
+    StudioUI.slider(from);
+    panel.addView(from, new LinearLayout.LayoutParams(-1, a.dp(48)));
     panel.addView(text("סוף הקטע", 12));
     to = new SeekBar(a);
     to.setMax(1000);
     to.setProgress(1000);
-    panel.addView(to);
+    StudioUI.slider(to);
+    panel.addView(to, new LinearLayout.LayoutParams(-1, a.dp(48)));
     SeekBar.OnSeekBarChangeListener listener =
         new SeekBar.OnSeekBarChangeListener() {
           public void onProgressChanged(SeekBar s, int p, boolean user) {
@@ -123,14 +130,23 @@ final class VideoStudio extends Dialog {
     from.setOnSeekBarChangeListener(listener);
     to.setOnSeekBarChangeListener(listener);
     LinearLayout options = a.row();
-    options.addView(
+    playButton =
         button(
-            "ניגון הקטע",
+            "נגן קטע",
             () -> {
-              preview.seekTo((int) (duration * from.getProgress() / 1000));
-              preview.start();
-            }),
-        new LinearLayout.LayoutParams(0, -2, 1));
+              if (preview.isPlaying()) {
+                preview.pause();
+                playButton.setText("נגן קטע");
+              } else {
+                int current = preview.getCurrentPosition();
+                if (current < duration * from.getProgress() / 1000
+                    || current >= duration * to.getProgress() / 1000)
+                  preview.seekTo((int) (duration * from.getProgress() / 1000));
+                preview.start();
+                playButton.setText("השהה");
+              }
+            });
+    options.addView(playButton, new LinearLayout.LayoutParams(0, -2, 1));
     options.addView(button("התאמה ויצוא", this::options), new LinearLayout.LayoutParams(0, -2, 1));
     panel.addView(options);
     TextView note = text("המקור נשמר · יצוא MP4 · השאר את האפליקציה פתוחה", 11);
@@ -155,6 +171,7 @@ final class VideoStudio extends Dialog {
                 && preview.isPlaying()
                 && preview.getCurrentPosition() >= duration * to.getProgress() / 1000) {
               preview.pause();
+              if (playButton != null) playButton.setText("נגן קטע");
               preview.seekTo((int) (duration * from.getProgress() / 1000));
             }
             h.postDelayed(this, 120);
@@ -185,7 +202,7 @@ final class VideoStudio extends Dialog {
   }
 
   void options() {
-    new PrivacyDialogBuilder(a)
+    new PrivacyDialogBuilder(a, false)
         .setTitle("התאמה ויצוא")
         .setItems(
             new String[] {
@@ -196,7 +213,7 @@ final class VideoStudio extends Dialog {
             },
             (d, n) -> {
               if (n == 0)
-                new PrivacyDialogBuilder(a)
+                new PrivacyDialogBuilder(a, false)
                     .setTitle("רזולוציה")
                     .setSingleChoiceItems(
                         new String[] {"מקור", "1080p", "720p", "480p"},
@@ -207,7 +224,7 @@ final class VideoStudio extends Dialog {
                         })
                     .show();
               else if (n == 1)
-                new PrivacyDialogBuilder(a)
+                new PrivacyDialogBuilder(a, false)
                     .setTitle("סיבוב")
                     .setSingleChoiceItems(
                         new String[] {"0°", "90°", "180°", "270°"},
@@ -218,7 +235,7 @@ final class VideoStudio extends Dialog {
                         })
                     .show();
               else if (n == 2)
-                new PrivacyDialogBuilder(a)
+                new PrivacyDialogBuilder(a, false)
                     .setTitle("קידוד MP4")
                     .setSingleChoiceItems(
                         new String[] {"H.264 · תאימות גבוהה", "H.265 · בהתאם לתמיכת המכשיר"},
@@ -230,6 +247,11 @@ final class VideoStudio extends Dialog {
                     .show();
               else {
                 mute = !mute;
+                if (preparedPlayer != null)
+                  try {
+                    preparedPlayer.setVolume(mute ? 0 : 1, mute ? 0 : 1);
+                  } catch (IllegalStateException ignored) {
+                  }
                 Toast.makeText(
                         a, mute ? "השמע יוסר מהעותק המיוצא" : "השמע יישמר", Toast.LENGTH_SHORT)
                     .show();

@@ -7,6 +7,8 @@ import android.view.*;
 /** Bounded pinch / pan viewer. Double-tap returns to fit or zooms to 2x. */
 final class ZoomPhotoView extends View {
   private Bitmap bitmap;
+  java.util.function.BiConsumer<Float, Float> subjectHeld;
+  private boolean multiple;
   private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
   private float zoom = 1, panX, panY, lastX, lastY;
   private final ScaleGestureDetector scale;
@@ -47,6 +49,13 @@ final class ZoomPhotoView extends View {
               }
 
               @Override
+              public void onLongPress(MotionEvent e) {
+                if (multiple || bitmap == null || subjectHeld == null) return;
+                PointF p = imagePoint(e.getX(), e.getY());
+                if (p != null) subjectHeld.accept(p.x, p.y);
+              }
+
+              @Override
               public boolean onDoubleTap(MotionEvent e) {
                 zoom = zoom > 1 ? 1 : 2;
                 panX = panY = 0;
@@ -61,6 +70,15 @@ final class ZoomPhotoView extends View {
     zoom = 1;
     panX = panY = 0;
     invalidate();
+  }
+
+  PointF imagePoint(float x, float y) {
+    if (bitmap == null) return null;
+    float s = fit() * zoom;
+    float px = (x - (getWidth() - bitmap.getWidth() * s) / 2 - panX) / s;
+    float py = (y - (getHeight() - bitmap.getHeight() * s) / 2 - panY) / s;
+    if (px < 0 || py < 0 || px >= bitmap.getWidth() || py >= bitmap.getHeight()) return null;
+    return new PointF(px / bitmap.getWidth(), py / bitmap.getHeight());
   }
 
   float fit() {
@@ -106,6 +124,8 @@ final class ZoomPhotoView extends View {
 
   @Override
   public boolean onTouchEvent(MotionEvent e) {
+    if (e.getActionMasked() == MotionEvent.ACTION_DOWN) multiple = false;
+    if (e.getPointerCount() > 1) multiple = true;
     if (getParent() != null)
       getParent()
           .requestDisallowInterceptTouchEvent(

@@ -80,3 +80,13 @@ Regular gallery windows allow capture; only the isolated vault and credential ga
 City/country lookup may use Android's network geocoder. Explain this in settings and location details, support opt-out, never invent a city, and never launch external maps without a tap. Preserve explicit user-supplied place names and group membership.
 
 Pinch density changes must keep the current scroll anchor and saved column preference. Recycled thumbnail cells remain square, date headers span the current column count, and a multi-touch gesture must not select a thumbnail. Keep the manual density setting available.
+
+
+## v12 interaction rules
+
+- Photo/video/subject studios share StudioUI controls, large hit areas, a clear close icon and a primary copy-export action. Popup sheets retain caller callbacks; narrow action bars stack instead of colliding. Dark studio options use a dark dialog theme.
+- Favorite state must change icon fill, color, selected accessibility state and persisted membership immediately.
+- Grid density and month/year overview are distinct presentations. Calendar covers/counts derive from the filtered scope; tapping moves toward real dates. Keep settings alternatives to pinch gestures and preserve date navigation/selection.
+- Maps stay inside Lume. Keep attribution visible, fetch only the visible viewport, disclose network region requests and support map-network opt-out. Marker data/photos remain local. Do not navigate to an external map app.
+- Subject extraction always requires a preview with erase/restore controls before save/share. Disclose touching-person limits. A transparent PNG is an importable sticker asset, not a promise of native WhatsApp sticker delivery.
+- Automatic people grouping remains opt-out, incremental and local. Honor existing charging choices and battery limits; never claim that unknown personal names or perfect identities are inferred.

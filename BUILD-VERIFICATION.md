@@ -1,31 +1,33 @@
-# Lume Gallery 11.0.0 — verification
+# Lume Gallery 12.0.0 — verification
 
 ## Changes checked
 
-Regular gallery windows now allow screenshots/recording regardless of the legacy protectScreen/appLock capture preferences. Only the isolated, non-exported vault and credential gate force FLAG_SECURE. The vault authenticates through Android device password/PIN and uses its own credential-bound AES-256-GCM Keystore key. It imports verified encrypted copies without deleting originals, previews internally, exports an explicit confirmed copy, and confirms permanent deletion. It locks in the background and after four minutes; dialogs close on lock. Previews use temporary private cache files, cleared on close/background/startup.
+Popup dialogs use shared rounded sheet styling, light/dark themes, RTL layout, motion preference and stacked long action labels. Caller OnShow/choice listeners remain intact. Photo and video studios share larger controls and a clear primary copy-export action; video preview adds explicit play/pause and mute feedback. Existing editing/export algorithms and the original files are preserved.
 
-The chunked encrypted format authenticates metadata, file ID, chunk order and end-of-file. Imports verify the decrypted copy with SHA-256 before final rename. Working memory for encryption/decryption is bounded by chunk size. A key requires credential authentication in the preceding five minutes; long operations may fail safely after expiry. Device Keystore/credential behavior needs real-phone validation.
+Favorites immediately change persisted membership, label, selected state and icon fill/color. Pinch density now transitions into actual month/year cover-card presentations derived from the filtered scope; card taps move toward the selected date. Manual view-type/density settings, selection and date navigation remain available.
 
-Photo EXIF and video ISO-6709 locations can resolve to city/country through Android Geocoder, with a visible network disclosure and opt-out. Missing names are explained. External maps open only on a tap and use validated saved coordinates. Place-group membership and custom names are preserved. No live location permission or map SDK was added.
+Maps use native osmdroid 6.1.20 and HTTPS OpenStreetMap tiles inside the app. No external-map intent is sent. The visible map region and IP reach the tile provider; image data and marker filenames stay local. Attribution links, app User-Agent, bounded private cache and a network opt-out are configured. There is no live location permission or bulk tile download. Additional markers read GPS from up to 500 photos in the current filtered collection, preserving archive/filter scope.
 
-Pinch changes the actual RecyclerView density between two and five columns, persists the preference and preserves the scroll anchor. Recycled cells remain square and date headers follow the current span count. Manual density controls remain available.
+People grouping can run in small foreground batches after model setup, with existing Android jobs as fallback. It observes user toggles, explicit charging preference and battery constraints; the open people list refreshes from encrypted metadata changes. A one-time existing Lume AI bundle installation is required, without a new remote inference model.
+
+Holding an image point triggers local portrait segmentation and connected-component selection near that point. An erase/restore preview is mandatory before explicit PNG save/share. Sticker output is a transparent 512x512 PNG with white outline. Source files/EXIF are not modified or copied into the output. Touching people may stay in the same component and require manual correction; this is not a per-person instance-segmentation model or native WhatsApp sticker pack integration.
 
 ## Results
 
-- Release build and all 61 app tests passed; Android Lint: zero errors, 33 warnings. The new storage advisory recommends allocatable-byte APIs instead of usable-space checks; imports also handle write failures without deleting sources. Earlier gesture accessibility and redraw/localization warnings remain documented.
-- Twelve new tests cover city/country formatting, invalid/map coordinates, geocoding opt-out, video GPS parsing, encrypted round trips, wrong keys, tampering, truncation, appended bytes, reordered chunks, secure vault window before authentication, actual verified import with untouched source, density/header bounds, square recycled tiles and real two-finger scale events. Prior capture-security assertions were updated to the new requested regular-gallery policy; all prior functional tests pass.
-- APK signature verified with the previous certificate; ZIP 16KB alignment and all three ARM64 ELF LOAD alignments passed. Packaged DEX still invokes MediaPipe's upstream DummyLogger, without ProtoLogger calls.
-- Test media and locations are synthetic. No user recordings, private media, signing keys or coordinates from references are committed.
+- Release build and all 76 app tests passed. Android Lint: zero errors, 39 warnings. New advisories include the deliberately programmatic SubjectBoard constructor and existing localization/redraw/touch recommendations.
+- Fifteen added tests cover favorite toggling/persistence and filled pixels; real calendar presentation transitions/counts/scopes; cutout component isolation and known touching-person behavior; transparent sticker dimensions; held-point letterboxing; erase/restore source preservation and brush selection; native map center/resource closure without an external intent; retained dialog callbacks/stacked long actions; automatic-people setup; and narrow/large-font photo/video/subject controls. The earlier grid-limit test was updated for the intended month-overview boundary. All prior tests pass.
+- Editor previews use synthetic sample media only. No user recording frames, faces, locations, account identifiers or signing keys are committed.
+- Signature verified against the prior certificate. ZIP 16KB alignment and all three ARM64 ELF LOAD alignments passed. Packaged DEX still invokes MediaPipe's upstream DummyLogger instead of remote ProtoLogger.
 
 ## Artifact
 
-File: `LumeGallery-v11.0.0.apk`  
-Bytes: 133753143  
-SHA-256: `211293f8a3da437347825a4f9af34825840c3822bac5d7542ccbf5d723cffdef`  
+File: `LumeGallery-v12.0.0.apk`  
+Bytes: 134525770  
+SHA-256: `d0c61312f30b4553b1fb6d11d8542438d2ea54e5cc7f45a9cd848275ad68d9cf`  
 Certificate SHA-256: `79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7`
 
 ## Limits
 
-No physical-device validation is claimed. Android device-password/Keystore enrollment, expiry and invalidation, OEM capture protection, real media codecs, MediaStore publishing, Geocoder availability/results and real gesture feel require phone testing. Unit crypto tests use an injected JCE key; they do not simulate hardware authentication. Names depend on the platform service and may require network; coarse place-group labels may refer to a nearby area. No in-app map tiles or Google Photos synchronization exist.
+No physical-device test is claimed. Hardware inference quality/performance, real gesture feel, map tile availability, Android background scheduling, video codecs and MediaStore export/sharing need phone testing. The tests exercise synthetic masks and UI/state, not a full on-device segmentation/face-inference benchmark. Map tests disable network; successful network tile delivery is not claimed from unit tests. osmdroid is pinned and its source/attribution links are in NOTICE.
 
-Vault import makes a copy; originals remain visible outside the vault until independently deleted. A decrypted private cache file exists while previewing, and after process death may remain until the next vault launch. Uninstall/data clearing or key invalidation can destroy access; there is no cloud recovery. Exporting a public copy intentionally allows access and capture outside the vault. These behaviors are explained in the UI and privacy policy.
+People require installed models and permissions; Android controls background timing. Preview masks can merge touching people or omit disconnected body regions; users must inspect/correct before sharing. PNG assets may need import into a sticker-capable app and are not guaranteed to arrive as native stickers in every recipient app. Existing vault credential and temporary private-preview-cache limitations remain documented in PRIVACY.md.
