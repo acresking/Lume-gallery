@@ -1,24 +1,24 @@
-# Lume Gallery 8.0.0 — verification
+# Lume Gallery 9.0.0 — verification
 
 ## Changes checked
 
-Responsive three-column album covers, local smart content collections, true-black dark appearance and a scrollable asynchronous photo/video metadata sheet. The new categories reuse existing Lume AI index entries and reject stale fingerprints and archived media. Camera data comes from the selected file, not from assumptions about the current device.
+Local date-based memory cards, selectable pinned collection shortcuts, and a bounded 2–6-photo collage editor with real preview, layout/aspect/spacing/background/full-image settings, source-order rotation and JPEG/PNG copy export. No remote model or new Android permission was added.
 
 ## Results
 
-- Release build, all 32 app tests and Android Lint passed. Lint: zero errors and 28 warnings.
-- Eight new tests cover fresh/stale/archive filtering, token boundaries, real collection filtering, album density with enlarged text, true-black appearance, EXIF camera/lens/exposure reading without changing source bytes, secure/scrollable details, and formatting missing metadata. All prior 24 app tests also passed.
-- Android UI previews were rendered using synthetic sample media. No private reference recording frames, faces, locations or filenames are included in the code or APK.
-- APK signature verified with the same certificate as previous versions. ZIP 16KB alignment passed and all three ARM64 native libraries retain at least 16KB ELF LOAD alignment.
-- Packaged DEX inspection confirms MediaPipe's stats factory still calls its upstream DummyLogger rather than remote logging. No new permissions, external model providers, map services or analytics were added.
+- Release build, all 40 app tests and Android Lint passed. Lint: zero errors and 30 warnings.
+- Eight new tests cover actual date membership, archived/future exclusion, leap-year boundaries, pinned preferences, disabling memory UI, date-collection filtering, collage-cell bounds/non-overlap, source pixel preservation/compositing, and editor control selection/large-font layout/secure windows. All prior 32 app tests also passed.
+- Android previews used synthetic sample media. No reference recording frames, faces, locations, account identifiers or personal filenames were committed.
+- APK signature verified with the same certificate as previous builds. ZIP alignment passed for 16KB pages; all three ARM64 libraries have ELF LOAD alignment of at least 16KB.
+- Packaged DEX confirms MediaPipe stats still use its upstream DummyLogger rather than remote logging. Existing privacy controls and local AI setup are retained.
 
 ## Artifact
 
-File: `LumeGallery-v8.0.0.apk`  
-Bytes: 133687575  
-SHA-256: `bbbec35a3f1f190a418f6cc47e7a26ce3f376a1ef02857c8f3478b292cf5ce05`  
+File: `LumeGallery-v9.0.0.apk`  
+Bytes: 133703959  
+SHA-256: `6e5684f4061a707599a03cc4cdf5f3d83cd1b18f1f605aa005d26ff124ba5327`  
 Certificate SHA-256: `79f748d439cfe5c39ca391d7ca146a85d6d84666b4114d45a8cc698b5877fcb7`
 
 ## Limits
 
-No physical-device testing is claimed. Video metadata depends on device/container support and the reported frame rate may not describe every frame of variable-rate video. Smart category accuracy is not guaranteed; no new model accuracy benchmark was performed. Categories populate after local indexing, not after merely installing the APK. Keystore/device authentication, OnePlus job scheduling, video codecs and full model inference still require phone validation. No complete parity with proprietary gallery apps, network maps, cloud backup, Google Lens or ProXDR integration is claimed.
+No physical-device validation is claimed. MediaStore export on a real phone, process interruption, OEM scheduling, codecs, Android Keystore/device authentication and full AI inference still require phone testing. The collage decodes each source to at most 1024 pixels and exports a new image with a maximum 3072-pixel long edge; output dimensions do not guarantee native source detail. Memory dates follow existing gallery capture/added date behavior, not inferred real-world events. There is no Google Photos synchronization, automatic shared album, AI story naming, network map, movie generation or proprietary cloud-editor integration.

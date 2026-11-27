@@ -111,7 +111,8 @@ public class GalleryExperienceTest {
           View.MeasureSpec.makeMeasureSpec(320, View.MeasureSpec.EXACTLY),
           View.MeasureSpec.makeMeasureSpec(640, View.MeasureSpec.EXACTLY));
       a.root.layout(0, 0, 320, 640);
-      ViewGroup row = (ViewGroup) a.body.getChildAt(0);
+      ViewGroup row = (ViewGroup) description(a.body, "קיבוץ תאריך ופעולות גלריה");
+      assertNotNull(row);
       assertTrue(row.getChildAt(0) instanceof HorizontalScrollView);
       for (int i = 0; i < row.getChildCount(); i++) {
         View child = row.getChildAt(i);
@@ -122,7 +123,7 @@ public class GalleryExperienceTest {
               child.getLeft() < row.getChildAt(j).getRight()
                   && row.getChildAt(j).getLeft() < child.getRight());
       }
-      assertTrue(a.body.getChildAt(1) instanceof HorizontalScrollView);
+      assertTrue(description(a.body, "סינון בתוך האוסף הנוכחי") instanceof HorizontalScrollView);
     }
   }
 
@@ -222,5 +223,18 @@ public class GalleryExperienceTest {
     MotionEvent e = MotionEvent.obtain(down, time, action, x, 10, 0);
     view.onTouchEvent(e);
     e.recycle();
+  }
+
+  View description(View v, String text) {
+    if (text.contentEquals(v.getContentDescription() == null ? "" : v.getContentDescription()))
+      return v;
+    if (v instanceof ViewGroup) {
+      ViewGroup group = (ViewGroup) v;
+      for (int i = 0; i < group.getChildCount(); i++) {
+        View found = description(group.getChildAt(i), text);
+        if (found != null) return found;
+      }
+    }
+    return null;
   }
 }

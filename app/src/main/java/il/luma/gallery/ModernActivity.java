@@ -23,6 +23,7 @@ public final class ModernActivity extends MainActivity {
   private final LinkedHashSet<String> selected = new LinkedHashSet<>();
   AiController ai;
   AppPrivacy privacy;
+  CollageStudio collageStudio;
   PeoplePlaces peoplePlaces;
   private String lastRenderedTab = "", lastScreenKey = "";
   private final Map<String, Parcelable> timelinePositions = new HashMap<>();
@@ -407,7 +408,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 8.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 9.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -428,6 +429,7 @@ public final class ModernActivity extends MainActivity {
   }
 
   String collectionTitle() {
+    if (collection.startsWith("memory:")) return MemoryCollections.title(collection.substring(7));
     if (collection.startsWith("smart:")) {
       SmartCollections.Category category = SmartCollections.find(collection.substring(6));
       return category == null ? "קטגוריה חכמה" : category.title;
@@ -639,8 +641,15 @@ public final class ModernActivity extends MainActivity {
     Set<String> members =
         customAlbum.isEmpty() ? Collections.emptySet() : albumMembers(customAlbum);
     String needle = search.trim().toLowerCase(Locale.ROOT);
+    long[] memoryRange =
+        collection.startsWith("memory:")
+            ? MemoryCollections.range(collection.substring(7), System.currentTimeMillis())
+            : null;
     for (Media m : media) {
-      if (!inCollection(m)) continue;
+      if (memoryRange != null) {
+        if (archived.contains(m.uri.toString()) || !MemoryCollections.matches(m, memoryRange))
+          continue;
+      } else if (!inCollection(m)) continue;
       if (!album.isEmpty() && !album.equals(m.path)) continue;
       if (!customAlbum.isEmpty() && !members.contains(m.uri.toString())) continue;
       if (filter == 1 && m.video()
@@ -671,6 +680,11 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   void gallery() {
+    if (collection.isEmpty()
+        && album.isEmpty()
+        && customAlbum.isEmpty()
+        && search.isBlank()
+        && !selecting) drawMemories(body);
     if (!album.isEmpty() || !collection.isEmpty() || !customAlbum.isEmpty()) {
       LinearLayout tools = row();
       tools.setPadding(dp(16), 0, dp(16), dp(6));
@@ -702,6 +716,7 @@ public final class ModernActivity extends MainActivity {
     }
     LinearLayout chips = row();
     chips.setPadding(dp(16), dp(2), dp(12), dp(6));
+    chips.setContentDescription("קיבוץ תאריך ופעולות גלריה");
     HorizontalScrollView groupingScroll = new HorizontalScrollView(this);
     groupingScroll.setHorizontalScrollBarEnabled(false);
     LinearLayout groupingRow = row();
@@ -1113,10 +1128,15 @@ public final class ModernActivity extends MainActivity {
             new String[] {
               "הוסף למועדפים",
               collection.equals("archive") ? "הוצא מארכיון" : "העבר לארכיון",
-              "הסר מהאלבום האישי"
+              "הסר מהאלבום האישי",
+              "צור קולאז׳"
             },
             (d, n) -> {
               if (selected.isEmpty()) return;
+              if (n == 3) {
+                startCollage();
+                return;
+              }
               if (n == 0) {
                 favorites.addAll(selected);
                 prefs.edit().putStringSet("favorites", new HashSet<>(favorites)).apply();
@@ -1193,11 +1213,7 @@ public final class ModernActivity extends MainActivity {
     int columns = albumColumns();
     LinearLayout c = scroll();
     c.setPadding(dp(18), dp(2), dp(18), dp(22));
-    LinearLayout pinned = row();
-    compactShortcut(pinned, "heart", "מועדפים", () -> openCollection("favorites"));
-    compactShortcut(pinned, "people", "אנשים", () -> peoplePlaces.open("person"));
-    compactShortcut(pinned, "place", "מקומות", () -> peoplePlaces.open("place"));
-    c.addView(pinned);
+    drawPinnedCollections(c);
     LinearLayout smart = row();
     smart.setPadding(dp(16), dp(14), dp(16), dp(14));
     GradientDrawable glow =
@@ -1236,6 +1252,7 @@ public final class ModernActivity extends MainActivity {
     LinearLayout.LayoutParams smartLp = new LinearLayout.LayoutParams(-1, -2);
     smartLp.setMargins(dp(4), dp(12), dp(4), dp(4));
     c.addView(smart, smartLp);
+    action(c, "יצירת קולאז׳ · 2–6 תמונות", this::beginCollageSelection);
     LinearLayout heading = row();
     TextView personal = label("האלבומים שלי", 22, ink, true);
     heading.addView(personal, new LinearLayout.LayoutParams(0, -2, 1));
@@ -1345,30 +1362,194 @@ public final class ModernActivity extends MainActivity {
           render();
         });
     c.addView(utilities);
-    Calendar now = Calendar.getInstance(), date = Calendar.getInstance();
-    for (Media m : media) {
-      date.setTimeInMillis(m.date);
-      if (!archived.contains(m.uri.toString())
-          && date.get(Calendar.YEAR) < now.get(Calendar.YEAR)
-          && date.get(Calendar.MONTH) == now.get(Calendar.MONTH)
-          && date.get(Calendar.DAY_OF_MONTH) == now.get(Calendar.DAY_OF_MONTH)) {
-        LinearLayout memory = row();
-        memory.setPadding(dp(14), dp(14), dp(14), dp(14));
-        memory.setBackground(rounded(card, 20));
-        ImageView image = new ImageView(this);
-        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        memory.addView(image, new LinearLayout.LayoutParams(dp(70), dp(70)));
-        thumbnail(image, m, 200);
-        TextView copy = label("ביום הזה\nרגע מהשנים הקודמות", 16, ink, true);
-        copy.setPadding(dp(14), 0, dp(14), 0);
-        memory.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-        memory.setOnClickListener(v -> viewer(m));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.topMargin = dp(18);
-        c.addView(memory, lp);
-        break;
+    drawMemories(c);
+  }
+
+  private static final String[][] PINNED = {
+    {"favorites", "מועדפים", "heart"},
+    {"people", "אנשים", "people"},
+    {"places", "מקומות", "place"},
+    {"screenshots", "צילומי מסך", "screenshot"},
+    {"videos", "סרטונים", "video"},
+    {"recent", "השבוע האחרון", "clock"},
+    {"archive", "ארכיון", "archive"},
+    {"trash", "סל שחזור", "trash"},
+    {"collage", "קולאז׳", "edit"}
+  };
+
+  ArrayList<String> pinnedCollections() {
+    Set<String> saved =
+        prefs.getStringSet(
+            "pinnedCollections", new HashSet<>(Arrays.asList("favorites", "people", "places")));
+    ArrayList<String> keys = new ArrayList<>();
+    for (String[] item : PINNED) if (saved.contains(item[0]) && keys.size() < 6) keys.add(item[0]);
+    if (keys.isEmpty()) keys.addAll(Arrays.asList("favorites", "people", "places"));
+    return keys;
+  }
+
+  void openPinned(String key) {
+    if (key.equals("people")) peoplePlaces.open("person");
+    else if (key.equals("places")) peoplePlaces.open("place");
+    else if (key.equals("trash")) trashScreen();
+    else if (key.equals("collage")) beginCollageSelection();
+    else openCollection(key.equals("recent") ? "memory:week" : key);
+  }
+
+  void drawPinnedCollections(LinearLayout c) {
+    LinearLayout heading = row();
+    heading.addView(label("המוצמדים שלי", 20, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
+    heading.addView(iconButton("edit", "התאמת קיצורים מוצמדים", this::editPinnedCollections));
+    c.addView(heading);
+    Set<String> active = new HashSet<>(pinnedCollections());
+    LinearLayout row = null;
+    int count = 0;
+    for (String[] item : PINNED) {
+      if (!active.contains(item[0])) continue;
+      if (count % 3 == 0) {
+        row = row();
+        row.setGravity(Gravity.TOP);
+        c.addView(row);
       }
+      compactShortcut(row, item[2], item[1], () -> openPinned(item[0]));
+      count++;
     }
+    while (count % 3 != 0) {
+      row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+      count++;
+    }
+  }
+
+  void editPinnedCollections() {
+    Set<String> selectedPins = new HashSet<>(pinnedCollections());
+    String[] names = new String[PINNED.length];
+    boolean[] checks = new boolean[PINNED.length];
+    for (int i = 0; i < PINNED.length; i++) {
+      names[i] = PINNED[i][1];
+      checks[i] = selectedPins.contains(PINNED[i][0]);
+    }
+    AlertDialog dialog =
+        new PrivacyDialogBuilder(this)
+            .setTitle("בחר עד שישה קיצורים")
+            .setMultiChoiceItems(
+                names,
+                checks,
+                (d, index, on) -> {
+                  if (on && selectedPins.size() >= 6) {
+                    ((AlertDialog) d).getListView().setItemChecked(index, false);
+                    Toast.makeText(this, "אפשר להצמיד עד שישה קיצורים", Toast.LENGTH_SHORT).show();
+                    return;
+                  }
+                  if (on) selectedPins.add(PINNED[index][0]);
+                  else selectedPins.remove(PINNED[index][0]);
+                })
+            .setNegativeButton("ביטול", null)
+            .setPositiveButton("שמור", null)
+            .create();
+    dialog.setOnShowListener(
+        v ->
+            dialog
+                .getButton(DialogInterface.BUTTON_POSITIVE)
+                .setOnClickListener(
+                    w -> {
+                      if (selectedPins.isEmpty()) {
+                        Toast.makeText(this, "בחר לפחות קיצור אחד", Toast.LENGTH_SHORT).show();
+                        return;
+                      }
+                      prefs
+                          .edit()
+                          .putStringSet("pinnedCollections", new HashSet<>(selectedPins))
+                          .apply();
+                      dialog.dismiss();
+                      render();
+                    }));
+    dialog.show();
+  }
+
+  void drawMemories(LinearLayout parent) {
+    if (!prefs.getBoolean("showMemories", true)) return;
+    ArrayList<MemoryCollections.Memory> memories =
+        MemoryCollections.build(media, archived, System.currentTimeMillis());
+    if (memories.isEmpty()) return;
+    TextView title = label("רגעים מהספרייה", 18, ink, true);
+    title.setPadding(dp(16), dp(8), dp(16), dp(8));
+    parent.addView(title);
+    HorizontalScrollView scroll = new HorizontalScrollView(this);
+    scroll.setHorizontalScrollBarEnabled(false);
+    scroll.setContentDescription("זיכרונות לפי תאריכים");
+    LinearLayout cards = row();
+    cards.setPadding(dp(12), 0, dp(12), dp(10));
+    for (var memory : memories) {
+      FrameLayout card = new FrameLayout(this);
+      card.setBackground(rounded(this.card, 22));
+      card.setClipToOutline(true);
+      ImageView image = new ImageView(this);
+      image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+      card.addView(image, new FrameLayout.LayoutParams(-1, -1));
+      thumbnail(image, memory.items.get(0), 360);
+      View shade = new View(this);
+      shade.setBackground(
+          new GradientDrawable(
+              GradientDrawable.Orientation.TOP_BOTTOM, new int[] {Color.TRANSPARENT, 0xe6000000}));
+      card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+      TextView text =
+          label(memory.title + "\n" + memory.items.size() + " פריטים", 14, Color.WHITE, true);
+      text.setPadding(dp(12), dp(8), dp(12), dp(10));
+      card.addView(text, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+      card.setContentDescription(memory.title + " · " + memory.items.size() + " פריטים");
+      card.setFocusable(true);
+      card.setOnClickListener(v -> openCollection("memory:" + memory.id));
+      pressAnimation(card);
+      LinearLayout.LayoutParams lp =
+          new LinearLayout.LayoutParams(
+              memories.size() == 1
+                  ? getResources().getDisplayMetrics().widthPixels - dp(32)
+                  : dp(158),
+              dp(126));
+      lp.setMargins(dp(4), 0, dp(4), 0);
+      cards.addView(card, lp);
+    }
+    scroll.addView(cards);
+    parent.addView(scroll, new LinearLayout.LayoutParams(-1, -2));
+  }
+
+  void beginCollageSelection() {
+    tab = "media";
+    album = "";
+    collection = "";
+    customAlbum = "";
+    search = "";
+    filter = 1;
+    selected.clear();
+    selecting = true;
+    render();
+    status.setText("בחר 2–6 תמונות, ואז עוד ← צור קולאז׳");
+  }
+
+  void startCollage() {
+    if (selected.size() < 2 || selected.size() > 6) {
+      message("קולאז׳", "בחר בין 2 ל־6 תמונות. אפשר ליצור קולאז׳ דרך עוד בשורת הבחירה.");
+      return;
+    }
+    ArrayList<Media> photos = new ArrayList<>();
+    for (String uri : selected) {
+      Media found = null;
+      for (Media m : media)
+        if (m.uri.toString().equals(uri)) {
+          found = m;
+          break;
+        }
+      if (found == null || found.video()) {
+        message("קולאז׳", "הקולאז׳ דורש תמונות זמינות בלבד; סרטונים אינם נתמכים.");
+        return;
+      }
+      photos.add(found);
+    }
+    if (collageStudio != null && collageStudio.isShowing()) return;
+    collageStudio = new CollageStudio(this, photos);
+    selected.clear();
+    selecting = false;
+    render();
+    collageStudio.show();
   }
 
   int albumColumns() {
@@ -1829,6 +2010,7 @@ public final class ModernActivity extends MainActivity {
                     })
                 .show());
     preference(c, "רקע שחור במראה כהה", "oledBlack", true);
+    preference(c, "הצג זיכרונות לפי תאריכים", "showMemories", true);
     preference(c, "אנימציות ומעברים", "motion", true);
     preference(c, "משוב רטט עדין בבחירה", "haptics", true);
     preference(c, "השאר מסך דולק בצפייה", "viewerAwake", true);
@@ -1942,7 +2124,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 8.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 9.0.0 · המדיה נשארת במכשיר\n"
                 + "חיבור לאינטרנט משמש להורדת מודלים בלבד. אין העלאת תמונות, חשבון או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
                 + " עותק.",
@@ -2568,6 +2750,7 @@ public final class ModernActivity extends MainActivity {
 
   @Override
   protected void onDestroy() {
+    if (collageStudio != null) collageStudio.dismiss();
     if (privacy != null) privacy.close();
     ui.removeCallbacksAndMessages(null);
     if (ai != null) ai.close();
