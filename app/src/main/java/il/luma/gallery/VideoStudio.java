@@ -247,11 +247,8 @@ final class VideoStudio extends Dialog {
   }
 
   void slider(String title, int value, int max, IntConsumer apply) {
-    LinearLayout row = a.row();
-    row.addView(text(title, 13), new LinearLayout.LayoutParams(0, -2, 1));
     TextView label = a.label(String.valueOf(value), 12, StudioUI.ACCENT, true);
-    row.addView(label);
-    panel.addView(row);
+    LinearLayout setting = StudioUI.setting(a, panel, title, label);
     SeekBar slider = new SeekBar(a);
     slider.setMax(max);
     slider.setProgress(value);
@@ -274,13 +271,13 @@ final class VideoStudio extends Dialog {
             refresh();
           }
         });
-    panel.addView(slider, new LinearLayout.LayoutParams(-1, a.dp(48)));
+    setting.addView(slider, new LinearLayout.LayoutParams(-1, a.dp(48)));
   }
 
   void choices(String[] labels, int selected, IntConsumer apply) {
-    for (int i = 0; i < labels.length; i += 3) {
+    for (int i = 0; i < labels.length; i += StudioUI.choiceColumns(a)) {
       LinearLayout row = a.row();
-      for (int j = i; j < Math.min(labels.length, i + 3); j++) {
+      for (int j = i; j < Math.min(labels.length, i + StudioUI.choiceColumns(a)); j++) {
         final int n = j;
         Button b =
             StudioUI.control(a, labels[j], () -> change(() -> apply.accept(n)), n == selected);

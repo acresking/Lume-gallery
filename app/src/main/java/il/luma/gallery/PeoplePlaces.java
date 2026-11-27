@@ -41,6 +41,14 @@ final class PeoplePlaces {
           if (kind.equals("person")) scanPeople();
           else scanPlaces();
         });
+    if (kind.equals("place"))
+      a.action(
+          c,
+          "המפה שלי · תמונות לפי מקום",
+          () -> {
+            if (opened[0] != null) opened[0].dismiss();
+            a.openPlacesMap();
+          });
     TextView liveStatus = a.text(AutoOrganizeJob.status(a), 12);
     c.addView(liveStatus);
     if (kind.equals("person")

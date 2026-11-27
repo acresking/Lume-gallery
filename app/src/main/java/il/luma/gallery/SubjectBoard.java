@@ -7,7 +7,40 @@ import android.view.*;
 /** Editable alpha mask with erase/restore brushes and an explicit transparent checkerboard. */
 final class SubjectBoard extends View {
   final Bitmap image, original;
-  boolean erase = true;
+  boolean erase = true, picking;
+  float brushSize = .045f;
+  final Bitmap initial;
+  final EditorHistory<Bitmap> history = new EditorHistory<>(6);
+  Runnable changed = () -> {};
+  java.util.function.Consumer<String> error = text -> {};
+
+  void remember() {
+    history.record(image.copy(Bitmap.Config.ARGB_8888, false));
+  }
+
+  void replace(Bitmap bitmap) {
+    image.eraseColor(Color.TRANSPARENT);
+    new Canvas(image).drawBitmap(bitmap, 0, 0, null);
+    invalidate();
+    changed.run();
+  }
+
+  void undo() {
+    picking = false;
+    if (history.canUndo()) replace(history.undo(image.copy(Bitmap.Config.ARGB_8888, false)));
+  }
+
+  void redo() {
+    picking = false;
+    if (history.canRedo()) replace(history.redo(image.copy(Bitmap.Config.ARGB_8888, false)));
+  }
+
+  void reset() {
+    picking = false;
+    remember();
+    replace(initial);
+  }
+
   private boolean multi;
   private final Paint paint = new Paint(3);
   private float lastX, lastY;
@@ -16,6 +49,7 @@ final class SubjectBoard extends View {
     super(c);
     image = selected.copy(Bitmap.Config.ARGB_8888, true);
     original = foreground;
+    initial = selected;
     setContentDescription("מסכת האדם · גרור למחיקה או שחזור");
   }
 
@@ -36,12 +70,13 @@ final class SubjectBoard extends View {
     c.save();
     c.translate((getWidth() - image.getWidth() * s) / 2, (getHeight() - image.getHeight() * s) / 2);
     c.scale(s, s);
-    c.drawBitmap(image, 0, 0, paint);
+    c.drawBitmap(picking ? original : image, 0, 0, paint);
     c.restore();
   }
 
   @Override
   public boolean onTouchEvent(MotionEvent e) {
+    if (!isEnabled()) return false;
     if (e.getActionMasked() == MotionEvent.ACTION_DOWN) multi = false;
     if (e.getPointerCount() > 1) multi = true;
     if (multi) {
@@ -56,7 +91,23 @@ final class SubjectBoard extends View {
         y = (e.getY() - (getHeight() - image.getHeight() * s) / 2) / s;
     if (x < 0 || y < 0 || x >= image.getWidth() || y >= image.getHeight()) return true;
     int action = e.getActionMasked();
+    if (picking) {
+      if (action == MotionEvent.ACTION_UP) {
+        try {
+          Bitmap choice =
+              SubjectCutout.select(original, x / image.getWidth(), y / image.getHeight());
+          remember();
+          picking = false;
+          replace(choice);
+        } catch (java.io.IOException e1) {
+          error.accept(e1.getMessage());
+        }
+        performClick();
+      }
+      return true;
+    }
     if (action == MotionEvent.ACTION_DOWN) {
+      remember();
       lastX = x;
       lastY = y;
       if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -65,7 +116,7 @@ final class SubjectBoard extends View {
       Paint brush = new Paint(3);
       brush.setStyle(Paint.Style.STROKE);
       brush.setStrokeCap(Paint.Cap.ROUND);
-      brush.setStrokeWidth(Math.max(image.getWidth(), image.getHeight()) * .045f);
+      brush.setStrokeWidth(Math.max(image.getWidth(), image.getHeight()) * brushSize);
       if (erase) brush.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
       else {
         brush.setShader(new BitmapShader(original, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
@@ -78,6 +129,7 @@ final class SubjectBoard extends View {
     }
     if (action == MotionEvent.ACTION_UP) {
       performClick();
+      changed.run();
       if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
     }
     return true;

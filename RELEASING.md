@@ -22,3 +22,6 @@ CI debug artifacts expire and are not the permanent installation link. No signin
 
 
 For v14 also run EditorPipelineTest: non-destructive photo pixels/alpha, normalized marks, history branching, clipped/speed-adjusted concatenation, actual Media3 effect composition, muted/audio-only outputs, PCM gain and time-based fades. On a phone check a real H.264/H.265 export, audio/video sync at 0.25/2/4x, mixed portrait/landscape concatenation, caption placement, camera HDR-to-SDR, M4A output, cancellation and all installed local-AI tools. The automated build does not replace these device checks.
+
+
+For v15 run DesignRefinementTest plus the full suite. On a phone inspect editor tool cards at normal/enlarged fonts, extraction reselection/brush/undo/sticker sharing, metadata-to-map navigation, collection map selection, map-network disabled behavior and attribution. Existing face-mask limitations and source privacy must remain explicit. Do not publish private recordings or signing keys.

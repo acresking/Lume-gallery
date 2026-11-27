@@ -186,10 +186,25 @@ final class MediaInfoSheet extends Dialog {
       if (gps != null && host.prefs.getBoolean("detailsLocation", true)) {
         if (location.isEmpty())
           note("שם העיר והמדינה אינו זמין כעת. אפשר לפתוח את המיקום השמור במפה.");
-        entries.addView(host.button("הצג על מפה", this::openMap));
+        LinearLayout mapCard = host.column();
+        mapCard.setPadding(host.dp(16), host.dp(14), host.dp(16), host.dp(14));
+        mapCard.setBackground(host.rounded(host.card, 20));
+        LinearLayout mapTitle = host.row();
+        mapTitle.addView(host.icon("place", host.accent, 24));
+        TextView mapLabel = host.label("המיקום בתמונה", 17, host.ink, true);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(0, -2, 1);
+        mlp.setMarginStart(host.dp(12));
+        mapTitle.addView(mapLabel, mlp);
+        mapCard.addView(mapTitle);
+        TextView mapHint =
+            host.label("גרירה, זום ותמונות מהאוסף — בתוך Lume", 13, host.muted, false);
+        mapHint.setPadding(0, host.dp(8), 0, host.dp(8));
+        mapCard.addView(mapHint);
+        mapCard.addView(host.button("הצג על מפה", this::openMap));
+        entries.addView(mapCard, 0);
         note(
-            "שמות מקומות עשויים להשתמש בשירות המיקום של Android. פתיחת מפה מעבירה את המיקום"
-                + " לאפליקציית המפות שבחרת.");
+            "שמות מקומות עשויים להשתמש בשירות המיקום של Android. המפה מוצגת בתוך Lume; ספק"
+                + " האריחים מקבל את האזור הגלוי וכתובת IP, ללא תמונות.");
       }
       if (!host.prefs.getBoolean("detailsLocation", true)) note("הצגת המיקום כבויה בהגדרות.");
       else if (!loading && location.isEmpty() && gps == null)
@@ -233,7 +248,10 @@ final class MediaInfoSheet extends Dialog {
 
   void openMap() {
     if (gps == null || !host.prefs.getBoolean("detailsLocation", true)) return;
+    dismiss();
     host.openMap(gps[0], gps[1]);
+    host.mapSheet.select(
+        media, location.isEmpty() ? "המיקום בתמונה" : location.values().iterator().next());
   }
 
   void copy(String name, String value) {

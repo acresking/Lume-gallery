@@ -53,7 +53,7 @@ public final class ModernActivity extends MainActivity {
   private final Map<String, ArrayList<Media>> dateGroups = new LinkedHashMap<>();
   private final Handler ui = new Handler(Looper.getMainLooper());
   private Runnable pendingSearch;
-  private int muted;
+  int muted;
   private ArrayList<Media> visible = new ArrayList<>();
 
   @Override
@@ -219,10 +219,10 @@ public final class ModernActivity extends MainActivity {
     FrameLayout r = new FrameLayout(this);
     r.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
     r.setPadding(dp(16), dp(14), dp(16), dp(14));
-    r.setMinimumHeight(dp(72));
+    r.setMinimumHeight(dp(64));
     r.setTag("settings-item:" + s);
     r.setBackground(
-        new RippleDrawable(ColorStateList.valueOf(0x226d52c7), rounded(card, 22), null));
+        new RippleDrawable(ColorStateList.valueOf(0x226d52c7), rounded(card, 18), null));
     String type =
         s.contains("סל")
             ? "trash"
@@ -466,7 +466,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 14.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה 15.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -1965,7 +1965,7 @@ public final class ModernActivity extends MainActivity {
   void albumCard(LinearLayout parent, String name, int count, Media cover, Runnable click) {
     LinearLayout cell = column();
     FrameLayout square = new FrameLayout(this);
-    square.setBackground(rounded(card, 22));
+    square.setBackground(rounded(card, 18));
     square.setClipToOutline(true);
     int columns = albumColumns();
     int height =
@@ -2257,7 +2257,7 @@ public final class ModernActivity extends MainActivity {
   void modernSettings() {
     LinearLayout c = scroll();
     c.setPadding(0, dp(4), 0, dp(28));
-    TextView intro = label("הגלריה שלך, בדרך שלך", 23, ink, true);
+    TextView intro = label("הגדרות הגלריה", 22, ink, true);
     intro.setPadding(dp(24), dp(18), dp(24), dp(4));
     c.addView(intro);
     EditText find = new EditText(this);
@@ -2504,7 +2504,7 @@ public final class ModernActivity extends MainActivity {
     section(c, "פרטיות ואודות");
     c.addView(
         text(
-            "Lume Gallery 14.0.0 · המדיה נשארת במכשיר\n"
+            "Lume Gallery 15.0.0 · המדיה נשארת במכשיר\n"
                 + "האינטרנט משמש להורדת מודלים, לשמות מקומות ולמפות OpenStreetMap בתוך האפליקציה."
                 + " אין העלאת תמונות או מודעות.\n"
                 + "סל השחזור הפרטי יימחק בהסרת האפליקציה. יכולות AI הן הערכה; בדוק תוצאה לפני שמירת"
@@ -2535,9 +2535,9 @@ public final class ModernActivity extends MainActivity {
     FrameLayout item = new FrameLayout(this);
     item.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
     item.setPadding(dp(16), dp(12), dp(12), dp(12));
-    item.setMinimumHeight(dp(72));
+    item.setMinimumHeight(dp(64));
     item.setTag("settings-item:" + label);
-    item.setBackground(rounded(card, 22));
+    item.setBackground(rounded(card, 18));
     TextView name = label(label, 15, ink, false);
     FrameLayout.LayoutParams nameLp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER_VERTICAL);
     nameLp.setMarginEnd(dp(78));
@@ -3139,6 +3139,38 @@ public final class ModernActivity extends MainActivity {
     if (mapSheet != null) mapSheet.dismiss();
     mapSheet = new PlacesMap(this, lat, lon);
     mapSheet.show();
+  }
+
+  void openPlacesMap() {
+    java.util.Set<String> visible = new java.util.HashSet<>();
+    for (Media media : filtered()) visible.add(media.uri.toString());
+    org.json.JSONArray albums = personalAlbums();
+    for (int i = 0; i < albums.length(); i++) {
+      org.json.JSONObject item = albums.optJSONObject(i);
+      if (item == null || !"place".equals(item.optString("kind"))) continue;
+      org.json.JSONArray members = item.optJSONArray("items");
+      boolean matches = false;
+      if (members != null)
+        for (int j = 0; j < members.length(); j++)
+          if (visible.contains(members.optString(j))) {
+            matches = true;
+            break;
+          }
+      if (!matches) continue;
+      try {
+        String[] point = item.optString("id").replace("place:", "").split(",");
+        double lat = Double.parseDouble(point[0].trim()), lon = Double.parseDouble(point[1].trim());
+        if (!LocationNames.valid(lat, lon)) continue;
+        openMap(lat, lon);
+        mapSheet.loadLibrary();
+        return;
+      } catch (Exception ignored) {
+      }
+    }
+    message(
+        "המקומות שלך",
+        "אין מקום שמור באוסף המסונן הנוכחי. אפשר לשנות מסנן או לסרוק נתוני מיקום ולוודא שיש GPS"
+            + " והרשאה לקריאתו.");
   }
 
   void details(Media m) {

@@ -28,7 +28,7 @@ final class SubjectStudio extends Dialog {
       float x,
       float y,
       java.util.function.BooleanSupplier valid) {
-    if (a.ai == null || !a.ai.require("portrait")) return;
+    if (a.ai == null || a.ai.busy || !a.ai.require("portrait")) return;
     android.widget.Toast.makeText(a, "מפריד את האדם במכשיר…", android.widget.Toast.LENGTH_SHORT)
         .show();
     a.ai.task(
@@ -64,43 +64,123 @@ final class SubjectStudio extends Dialog {
         });
     LinearLayout top = host.row();
     top.addView(StudioUI.close(host, this::dismiss));
-    TextView title = host.label("האדם שבחרת", 22, 0xfff4efff, true);
+    TextView title = host.label("האדם שבחרת", 20, 0xfff4efff, true);
+    title.setMaxLines(1);
+    title.setEllipsize(android.text.TextUtils.TruncateAt.END);
     top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
     root.addView(top);
+    LinearLayout historyRow = host.row();
+    View undo = host.iconButton("undo", "בטל תיקון מסכה", board::undo);
+    View redo = host.iconButton("redo", "שחזר תיקון מסכה", board::redo);
+    ((ImageView) ((FrameLayout) undo).getChildAt(0))
+        .setImageDrawable(new GalleryIcons("undo", StudioUI.ACCENT));
+    ((ImageView) ((FrameLayout) redo).getChildAt(0))
+        .setImageDrawable(new GalleryIcons("redo", StudioUI.ACCENT));
+    historyRow.addView(undo);
+    historyRow.addView(redo);
+    TextView step = host.label("תיקון המסכה · המקור נשמר", 12, 0xffd4c8e3, false);
+    historyRow.addView(step, new LinearLayout.LayoutParams(0, -2, 1));
+    root.addView(historyRow);
+    board.changed =
+        () -> {
+          undo.setEnabled(board.history.canUndo());
+          redo.setEnabled(board.history.canRedo());
+          undo.setAlpha(undo.isEnabled() ? 1 : .35f);
+          redo.setAlpha(redo.isEnabled() ? 1 : .35f);
+        };
+    board.error = message -> host.message("בחירת אדם", message);
+    board.changed.run();
+    board.setBackground(host.rounded(StudioUI.SURFACE, 24));
+    board.setClipToOutline(true);
     root.addView(board, new LinearLayout.LayoutParams(-1, 0, 1));
+    LinearLayout tools = host.column();
+    tools.setPadding(host.dp(12), host.dp(8), host.dp(12), host.dp(8));
+    tools.setBackground(host.rounded(StudioUI.SURFACE, 24));
+    ScrollView toolsScroll = new ScrollView(host);
+    toolsScroll.addView(tools);
+    root.addView(
+        toolsScroll,
+        new LinearLayout.LayoutParams(
+            -1,
+            Math.min(
+                host.dp(300),
+                (int) (host.getResources().getDisplayMetrics().heightPixels * .38f))));
     TextView note =
         host.label(
-            "בדוק שנותר רק האדם הרצוי. אנשים שנוגעים זה בזה עשויים להישאר יחד; גרור למחיקה או"
-                + " שחזור. המקור נשמר.",
-            13,
-            0xffd4c8e3,
-            false);
+            "מחק או שחזר כדי לדייק. אנשים שנוגעים עשויים להישאר יחד.", 13, 0xffd4c8e3, false);
     note.setPadding(host.dp(16), host.dp(12), host.dp(16), host.dp(12));
-    root.addView(note);
+    tools.addView(note);
     LinearLayout brushes = host.row();
     TextView erase = StudioUI.tab(host, "מחק", true, () -> {}),
         restore = StudioUI.tab(host, "שחזר", false, () -> {});
     erase.setOnClickListener(
         v -> {
+          board.picking = false;
+          board.invalidate();
           board.erase = true;
           brushState(erase, true);
           brushState(restore, false);
+          board.changed.run();
         });
     restore.setOnClickListener(
         v -> {
+          board.picking = false;
+          board.invalidate();
           board.erase = false;
           brushState(restore, true);
           brushState(erase, false);
+          board.changed.run();
         });
     brushes.addView(erase);
     brushes.addView(restore);
-    root.addView(brushes);
+    tools.addView(brushes);
+    TextView pick = StudioUI.tab(host, "בחר אדם מחדש", false, () -> {});
+    pick.setOnClickListener(
+        v -> {
+          board.picking = true;
+          board.invalidate();
+          brushState(erase, false);
+          brushState(restore, false);
+          step.setText("הקש על האדם בתצוגה לבחירה מחדש");
+          board.changed.run();
+        });
+    tools.addView(pick);
+    Runnable historyState = board.changed;
+    board.changed =
+        () -> {
+          historyState.run();
+          brushState(pick, board.picking);
+          brushState(erase, !board.picking && board.erase);
+          brushState(restore, !board.picking && !board.erase);
+          step.setText(
+              board.picking ? "הקש על האדם בתצוגה לבחירה מחדש" : "תיקון המסכה · המקור נשמר");
+        };
+    board.changed.run();
+    TextView brushLabel = host.label("גודל מברשת", 13, 0xfff4efff, false);
+    tools.addView(brushLabel);
+    SeekBar width = new SeekBar(host);
+    width.setMax(90);
+    width.setProgress(35);
+    width.setContentDescription("גודל מברשת תיקון האדם");
+    StudioUI.slider(width);
+    width.setOnSeekBarChangeListener(
+        new SeekBar.OnSeekBarChangeListener() {
+          public void onProgressChanged(SeekBar s, int p, boolean user) {
+            board.brushSize = (p + 10) / 1000f;
+          }
+
+          public void onStartTrackingTouch(SeekBar s) {}
+
+          public void onStopTrackingTouch(SeekBar s) {}
+        });
+    tools.addView(width, new LinearLayout.LayoutParams(-1, host.dp(48)));
+    tools.addView(StudioUI.control(host, "איפוס לבחירה הראשונה", board::reset, false));
     CheckBox format = new CheckBox(host);
     format.setText("סטיקר PNG · 512×512 עם מסגרת לבנה");
     format.setTextColor(0xfff4efff);
     format.setPadding(host.dp(16), host.dp(8), host.dp(16), host.dp(8));
     format.setOnCheckedChangeListener((v, on) -> sticker = on);
-    root.addView(format);
+    tools.addView(format);
     LinearLayout actions = host.row();
     actions.setPadding(host.dp(12), host.dp(8), host.dp(12), host.dp(16));
     actions.addView(
@@ -121,8 +201,15 @@ final class SubjectStudio extends Dialog {
 
   void save(boolean share) {
     if (saving) return;
+    final Bitmap snapshot;
+    try {
+      snapshot = board.image.copy(Bitmap.Config.ARGB_8888, false);
+    } catch (OutOfMemoryError error) {
+      host.message("שמירת האדם", "אין מספיק זיכרון כרגע. נסה לסגור עורך נוסף.");
+      return;
+    }
     saving = true;
-    final Bitmap snapshot = board.image.copy(Bitmap.Config.ARGB_8888, false);
+    board.setEnabled(false);
     final boolean asSticker = sticker;
     host.io.execute(
         () -> {
@@ -143,6 +230,7 @@ final class SubjectStudio extends Dialog {
             host.runOnUiThread(
                 () -> {
                   saving = false;
+                  board.setEnabled(true);
                   if (host.destroyed || !isShowing()) return;
                   if (share) {
                     Intent intent =
@@ -157,7 +245,7 @@ final class SubjectStudio extends Dialog {
                   } else
                     Toast.makeText(host, "עותק PNG שקוף נשמר בגלריה", Toast.LENGTH_LONG).show();
                 });
-          } catch (Exception error) {
+          } catch (Exception | OutOfMemoryError error) {
             if (uri != null)
               try {
                 host.getContentResolver().delete(uri, null, null);
@@ -166,7 +254,13 @@ final class SubjectStudio extends Dialog {
             host.runOnUiThread(
                 () -> {
                   saving = false;
-                  if (!host.destroyed) host.message("שמירת האדם", error.getMessage());
+                  board.setEnabled(true);
+                  if (!host.destroyed)
+                    host.message(
+                        "שמירת האדם",
+                        error instanceof OutOfMemoryError
+                            ? "אין מספיק זיכרון כרגע"
+                            : error.getMessage());
                 });
           } finally {
             snapshot.recycle();

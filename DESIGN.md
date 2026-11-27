@@ -105,3 +105,10 @@ Pinch density changes must keep the current scroll anchor and saved column prefe
 ## Editor contracts (v14)
 
 Use one recipe snapshot for preview, undo and export. Photo marks use normalized coordinates. Save copies; never overwrite sources. Keep top-level save/close and undo reachable; tool groups scroll horizontally and controls vertically with 48dp targets. Surface expensive AI operations as busy/cancellable, require explicit model setup and show errors. AI results create a bounded checkpoint; do not retain unlimited full-resolution bitmaps. Do not advertise temporal video AI from single-frame inference. Video speed must alter both video timestamps and audio timing during export, with the same speed/pitch choice in playback. Caption, crop and color changes must be exported through Media3, not just painted over the preview UI. Use app-private temporary inputs and remove old files; never commit private media or signing material.
+
+
+## v15 layout rules
+
+Editor slider titles and value badges share a card, with at least 48dp slider height and spacing between cards. Use two choice columns on narrow screens or enlarged text. Preserve horizontal category scrolling. Subject extraction corrections must be undoable, with a bounded history, variable brush size and clear reselection mode. Keep mask controls in a scroll area rather than squeezing the preview away. Map uses full-screen canvas with floating title and a bottom selected-photo card; map attribution stays visible. Media details link to the in-app map with a prominent card when GPS is available, without loading map tiles inside details. No external map launch or live device location is implied.
+
+Keep subject save/share actions pinned below the independently scrollable correction controls. Collection-map initial centering must also respect current scope and archive visibility.

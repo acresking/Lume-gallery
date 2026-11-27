@@ -20,10 +20,13 @@ final class PlacesMap extends Dialog {
   MapView map;
   final AtomicBoolean canceled = new AtomicBoolean();
   private TextView status;
+  private android.graphics.drawable.Drawable pinDrawable;
   private boolean libraryLoaded;
+  private LinearLayout selection;
+  private android.widget.Button loadButton;
 
   PlacesMap(ModernActivity activity, double lat, double lon) {
-    super(activity);
+    super(activity, android.R.style.Theme_Material_NoActionBar);
     host = activity;
     if (!LocationNames.valid(lat, lon)) throw new IllegalArgumentException("Invalid point");
     latitude = lat;
@@ -43,24 +46,8 @@ final class PlacesMap extends Dialog {
         .setUserAgentValue("LumeGallery/12.0 (https://github.com/acresking/Lume-gallery)");
     Configuration.getInstance().setTileFileSystemCacheMaxBytes(64L * 1024 * 1024);
     Configuration.getInstance().setTileFileSystemCacheTrimBytes(48L * 1024 * 1024);
-    LinearLayout root = host.column();
-    root.setBackground(host.rounded(host.bg, 28));
-    root.setPadding(host.dp(12), host.dp(12), host.dp(12), host.dp(12));
-    LinearLayout heading = host.row();
-    heading.addView(
-        host.label("המקומות שלך", 23, host.ink, true), new LinearLayout.LayoutParams(0, -2, 1));
-    heading.addView(host.iconButton("close", "סגירת מפה", this::dismiss));
-    root.addView(heading);
-    status =
-        host.label(
-            host.prefs.getBoolean("mapNetwork", true)
-                ? "מפה בתוך Lume · גרירה וצביטה לזום"
-                : "רשת למפה כבויה · יוצגו אריחים שכבר נשמרו, אם יש",
-            13,
-            host.ink,
-            false);
-    status.setPadding(host.dp(8), host.dp(8), host.dp(8), host.dp(12));
-    root.addView(status);
+    android.widget.FrameLayout root = new android.widget.FrameLayout(host);
+    root.setBackgroundColor(host.bg);
     map = new MapView(host);
     map.setTileSource(
         new XYTileSource(
@@ -72,72 +59,170 @@ final class PlacesMap extends Dialog {
             new String[] {"https://tile.openstreetmap.org/"},
             "© OpenStreetMap contributors"));
     map.setMultiTouchControls(true);
+    map.setBuiltInZoomControls(false);
     map.setMinZoomLevel(2d);
     map.setMaxZoomLevel(19d);
     map.setUseDataConnection(host.prefs.getBoolean("mapNetwork", true));
     map.getController().setZoom(13d);
     map.getController().setCenter(new GeoPoint(latitude, longitude));
-    root.addView(map, new LinearLayout.LayoutParams(-1, 0, 1));
-    add(latitude, longitude, "המיקום בתמונה", null);
+    root.addView(map, new android.widget.FrameLayout.LayoutParams(-1, -1));
+    LinearLayout chrome = host.column();
+    chrome.setPadding(host.dp(12), host.dp(12), host.dp(12), 0);
+    LinearLayout heading = host.row();
+    heading.setPadding(host.dp(8), host.dp(6), host.dp(8), host.dp(6));
+    heading.setElevation(host.dp(6));
+    heading.setBackground(host.rounded(host.card, 22));
+    heading.addView(host.iconButton("back", "חזרה מהמפה", this::dismiss));
+    heading.addView(
+        host.label("המקומות שלך", 20, host.ink, true), new LinearLayout.LayoutParams(0, -2, 1));
+    heading.addView(
+        host.iconButton(
+            "info",
+            "פרטיות ומקור המפה",
+            () ->
+                new PrivacyDialogBuilder(host)
+                    .setTitle("מפה פרטית בתוך Lume")
+                    .setMessage(
+                        "התמונות נשארות במכשיר. אריחי OpenStreetMap דורשים רשת ומשתפים עם הספק את"
+                            + " אזור המפה וכתובת IP. אין שימוש במיקום החי של הטלפון. אפשר לכבות רשת"
+                            + " למפה בהגדרות.\n"
+                            + "© OpenStreetMap contributors")
+                    .setPositiveButton("הבנתי", null)
+                    .show()));
+    chrome.addView(heading);
+    android.widget.FrameLayout.LayoutParams top =
+        new android.widget.FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
+    root.addView(chrome, top);
+    LinearLayout bottom = host.column();
+    bottom.setPadding(host.dp(16), host.dp(12), host.dp(16), host.dp(10));
+    bottom.setBackground(host.rounded(host.card, 24));
+    bottom.setElevation(host.dp(8));
+    status =
+        host.label(
+            host.prefs.getBoolean("mapNetwork", true)
+                ? "צביטה לזום · הקש על סמן לבחירת תמונה"
+                : "רשת למפה כבויה · מטמון בלבד",
+            12,
+            host.muted,
+            false);
+    bottom.addView(status);
+    selection = host.column();
+    bottom.addView(selection);
     LinearLayout controls = host.row();
     controls.addView(
-        host.button(
-            "מרכז למיקום", () -> map.getController().animateTo(new GeoPoint(latitude, longitude))),
-        new LinearLayout.LayoutParams(0, -2, 1));
-    controls.addView(
-        host.button("תמונות מהאוסף במפה", this::loadLibrary),
-        new LinearLayout.LayoutParams(0, -2, 1));
-    root.addView(controls);
-    TextView credit =
-        host.label(
-            "© OpenStreetMap contributors · המפה דורשת רשת; האזור המבוקש וכתובת IP נשלחים לספק"
-                + " האריחים. תמונות אינן נשלחות.",
-            12,
-            host.ink,
-            false);
-    credit.setPadding(host.dp(8), host.dp(10), host.dp(8), host.dp(8));
+        host.iconButton(
+            "place",
+            "מרכוז למקום המקורי",
+            () -> map.getController().animateTo(new GeoPoint(latitude, longitude))));
+    controls.addView(host.iconButton("plus", "התקרבות במפה", () -> map.getController().zoomIn()));
+    loadButton = host.button("תמונות במפה", this::loadLibrary);
+    controls.addView(loadButton, new LinearLayout.LayoutParams(0, -2, 1));
+    bottom.addView(controls);
+    TextView credit = host.label("© OpenStreetMap contributors", 11, host.muted, false);
+    credit.setGravity(Gravity.CENTER);
+    credit.setPadding(0, host.dp(6), 0, 0);
     android.text.SpannableString attributed = new android.text.SpannableString(credit.getText());
     attributed.setSpan(
         new android.text.style.URLSpan("https://www.openstreetmap.org/copyright"),
         0,
-        "© OpenStreetMap contributors".length(),
+        attributed.length(),
         android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     credit.setText(attributed);
     credit.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
-    root.addView(credit);
+    bottom.addView(credit);
+    android.widget.FrameLayout.LayoutParams bottomLp =
+        new android.widget.FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+    bottomLp.setMargins(host.dp(12), 0, host.dp(12), host.dp(12));
+    root.addView(bottom, bottomLp);
+    root.setOnApplyWindowInsetsListener(
+        (view, insets) -> {
+          var bars = insets.getInsets(WindowInsets.Type.systemBars());
+          view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+          return insets;
+        });
+    add(latitude, longitude, "המיקום בתמונה", null);
     setContentView(root);
+  }
+
+  private android.graphics.drawable.Drawable pin() {
+    if (pinDrawable != null) return pinDrawable;
+    int w = host.dp(36), h = host.dp(44);
+    android.graphics.Bitmap bitmap =
+        android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+    android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+    canvas.scale(w / 36f, h / 44f);
+    android.graphics.Path path = new android.graphics.Path();
+    path.moveTo(18, 42);
+    path.cubicTo(13, 34, 3, 25, 3, 17);
+    path.cubicTo(3, -2, 33, -2, 33, 17);
+    path.cubicTo(33, 25, 23, 34, 18, 42);
+    path.close();
+    android.graphics.Paint paint = new android.graphics.Paint(3);
+    paint.setColor(0xffbda3ff);
+    canvas.drawPath(path, paint);
+    paint.setColor(android.graphics.Color.WHITE);
+    paint.setStyle(android.graphics.Paint.Style.STROKE);
+    paint.setStrokeWidth(2);
+    canvas.drawPath(path, paint);
+    paint.setStyle(android.graphics.Paint.Style.FILL);
+    paint.setColor(0xff251b35);
+    canvas.drawCircle(18, 16, 6, paint);
+    pinDrawable = new android.graphics.drawable.BitmapDrawable(host.getResources(), bitmap);
+    return pinDrawable;
   }
 
   void add(double lat, double lon, String name, MainActivity.Media item) {
     Marker marker = new Marker(map);
+    marker.setIcon(pin());
     marker.setPosition(new GeoPoint(lat, lon));
     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
     marker.setTitle(name);
     marker.setOnMarkerClickListener(
         (m, v) -> {
           status.setText(name);
-          if (item != null)
-            new PrivacyDialogBuilder(host)
-                .setTitle(name)
-                .setItems(
-                    new String[] {"פתח תמונה", "מרכז במפה"},
-                    (d, n) -> {
-                      if (n == 0) {
-                        dismiss();
-                        host.viewer(item);
-                      } else map.getController().animateTo(m.getPosition());
-                    })
-                .show();
-          else m.showInfoWindow();
+          if (item != null) select(item, name);
+          map.getController().animateTo(m.getPosition());
           return true;
         });
     map.getOverlays().add(marker);
     map.invalidate();
   }
 
+  void select(MainActivity.Media item, String name) {
+    if (selection == null) return;
+    selection.removeAllViews();
+    LinearLayout card = host.row();
+    card.setPadding(0, host.dp(12), 0, host.dp(8));
+    ImageView image = new ImageView(host);
+    image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    image.setBackground(host.rounded(host.bg, 14));
+    image.setClipToOutline(true);
+    card.addView(image, new LinearLayout.LayoutParams(host.dp(64), host.dp(64)));
+    host.thumbnail(image, item, 160);
+    LinearLayout text = host.column();
+    text.setPadding(host.dp(12), 0, host.dp(8), 0);
+    TextView title = host.label(name, 15, host.ink, true);
+    title.setMaxLines(2);
+    title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    text.addView(title);
+    text.addView(host.label("פתח תמונה  ←", 12, host.accent, true));
+    card.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
+    card.setContentDescription("פתח תמונה מהמפה: " + name);
+    card.setOnClickListener(
+        v -> {
+          dismiss();
+          host.viewer(item);
+        });
+    selection.addView(card);
+  }
+
   void loadLibrary() {
     if (libraryLoaded) return;
     libraryLoaded = true;
+    if (loadButton != null) {
+      loadButton.setEnabled(false);
+      loadButton.setText("טוען תמונות…");
+    }
     ArrayList<MainActivity.Media> items = host.filtered();
     status.setText("קורא מיקומים מהמכשיר…");
     host.io.execute(
@@ -169,9 +254,13 @@ final class PlacesMap extends Dialog {
           final int total = count;
           host.runOnUiThread(
               () -> {
-                if (!canceled.get() && isShowing())
+                if (!canceled.get() && isShowing()) {
+                  if (loadButton != null) loadButton.setText(total + " תמונות");
                   status.setText(
-                      total + " תמונות עם מיקום נוספו · עד 500 סמנים · הקש על סמן לפתיחה");
+                      total == 0
+                          ? "לא נמצאו תמונות עם GPS קריא באוסף הזה"
+                          : total + " תמונות עם מיקום · הקש על סמן לבחירה");
+                }
               });
         });
   }
@@ -182,8 +271,9 @@ final class PlacesMap extends Dialog {
     getWindow().setWindowAnimations(host.motion() ? R.style.GallerySheetMotion : 0);
     super.show();
     getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-    getWindow().setGravity(Gravity.BOTTOM);
-    getWindow().setLayout(-1, (int) (host.getResources().getDisplayMetrics().heightPixels * .9f));
+    getWindow().setLayout(-1, -1);
+    getWindow().setStatusBarColor(host.bg);
+    getWindow().setNavigationBarColor(host.bg);
     map.onResume();
   }
 

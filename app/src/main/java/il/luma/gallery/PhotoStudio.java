@@ -255,11 +255,8 @@ final class PhotoStudio extends Dialog {
   }
 
   void slider(String name, int value, int max, IntConsumer apply) {
-    LinearLayout row = a.row();
-    row.addView(text(name, 13), new LinearLayout.LayoutParams(0, -2, 1));
     TextView current = a.label(String.valueOf(value), 12, StudioUI.ACCENT, true);
-    row.addView(current);
-    panel.addView(row);
+    LinearLayout setting = StudioUI.setting(a, panel, name, current);
     SeekBar seek = new SeekBar(a);
     seek.setMax(max);
     seek.setProgress(value);
@@ -282,13 +279,13 @@ final class PhotoStudio extends Dialog {
             refresh();
           }
         });
-    panel.addView(seek, new LinearLayout.LayoutParams(-1, a.dp(48)));
+    setting.addView(seek, new LinearLayout.LayoutParams(-1, a.dp(48)));
   }
 
   void choices(String[] names, int selected, IntConsumer action) {
-    for (int i = 0; i < names.length; i += 3) {
+    for (int i = 0; i < names.length; i += StudioUI.choiceColumns(a)) {
       LinearLayout row = a.row();
-      for (int j = i; j < Math.min(names.length, i + 3); j++) {
+      for (int j = i; j < Math.min(names.length, i + StudioUI.choiceColumns(a)); j++) {
         final int n = j;
         Button button =
             StudioUI.control(a, names[j], () -> change(() -> action.accept(n)), selected == j);
