@@ -87,7 +87,10 @@ final class PeoplePlaces {
                             .remove("peopleScanned")
                             .putBoolean("autoPeople", false);
                         PrivateData.clearCovers(a);
-                      } else edit.remove("placesScanned").putBoolean("autoPlaces", false);
+                      } else {
+                        edit.remove("placesScanned").putBoolean("autoPlaces", false);
+                        LocationNames.clear(a);
+                      }
                       edit.apply();
                       AutoOrganizeJob.schedule(a);
                       if (opened[0] != null) opened[0].dismiss();

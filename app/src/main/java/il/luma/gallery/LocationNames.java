@@ -9,6 +9,7 @@ import java.util.concurrent.*;
 /** Best-effort Android geocoder. The platform provider may use a network service. */
 final class LocationNames {
   private static final Map<String, String> cache = new ConcurrentHashMap<>();
+  private static final java.util.concurrent.atomic.AtomicLong generation=new java.util.concurrent.atomic.AtomicLong();
   private static final ThreadPoolExecutor worker =
       new ThreadPoolExecutor(
           2,
@@ -35,6 +36,7 @@ final class LocationNames {
 
   static String resolve(Context context, double lat, double lon) {
     if (!context.getSharedPreferences("luma", 0).getBoolean("placeNames", true) || !valid(lat, lon)) return "";
+    long epoch=generation.get();
     Locale locale = context.getResources().getConfiguration().getLocales().get(0);
     String key = String.format(Locale.ROOT, "%s:%.3f:%.3f", locale.toLanguageTag(), lat, lon);
     String previous = cache.get(key);
@@ -44,7 +46,7 @@ final class LocationNames {
       org.json.JSONObject entry = saved.optJSONObject(key);
       if(entry!=null && System.currentTimeMillis()-entry.optLong("time")<90L*24*60*60*1000) {
         String name=entry.optString("name");
-        if(!name.isBlank()){cache.put(key,name);return name;}
+        if(!name.isBlank()){synchronized(LocationNames.class){if(generation.get()!=epoch)return "";cache.put(key,name);return name;}}
       }
     } catch (Exception ignored) {}
     if (!Geocoder.isPresent()) return "";
@@ -58,11 +60,7 @@ final class LocationNames {
                 return found == null || found.isEmpty() ? "" : format(found.get(0));
               });
       String result = task.get(8, TimeUnit.SECONDS);
-      if (!result.isBlank()) {
-        if (cache.size() > 200) cache.clear();
-        cache.put(key, result);
-        persist(context,key,result);
-      }
+      if (!result.isBlank() && !persist(context,key,result,epoch)) return "";
       return result;
     } catch (Exception error) {
       if (task != null) task.cancel(true);
@@ -70,13 +68,21 @@ final class LocationNames {
     }
   }
 
-  private static synchronized void persist(Context c,String key,String name) {
+  private static synchronized boolean persist(Context c,String key,String name,long epoch) {
+    if(generation.get()!=epoch || !c.getSharedPreferences("luma",0).getBoolean("placeNames",true))return false;
+    if(cache.size()>200)cache.clear();cache.put(key,name);
     try {
       org.json.JSONObject values=new org.json.JSONObject(PrivateData.read(c,"placeNameCache","{}"));
       values.put(key,new org.json.JSONObject().put("name",name).put("time",System.currentTimeMillis()));
       while(values.length()>200){String oldest=null;long time=Long.MAX_VALUE;for(var it=values.keys();it.hasNext();){String k=it.next();long t=values.optJSONObject(k)==null?0:values.optJSONObject(k).optLong("time");if(t<time){time=t;oldest=k;}}if(oldest==null)break;values.remove(oldest);}
       PrivateData.write(c,"placeNameCache",values.toString());
     } catch (Exception ignored) {}
+    return true;
+  }
+
+  static synchronized void clear(Context c) {
+    generation.incrementAndGet();cache.clear();
+    c.getSharedPreferences("luma",0).edit().remove("placeNameCache").commit();
   }
 
   static boolean valid(double lat, double lon) {

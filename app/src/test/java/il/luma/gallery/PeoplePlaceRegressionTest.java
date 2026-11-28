@@ -62,4 +62,15 @@ public class PeoplePlaceRegressionTest {
     assertEquals("Fixture City, Fixture Country",LocationNames.resolve(context,12.345,45.678));
     context.getSharedPreferences("luma",0).edit().putBoolean("placeNames",false).commit();assertEquals("",LocationNames.resolve(context,12.345,45.678));
   }
+  @Test public void resettingPlacesClearsPersistentAndMemoryNames() throws Exception {
+    var context=RuntimeEnvironment.getApplication();String locale=context.getResources().getConfiguration().getLocales().get(0).toLanguageTag();
+    String key=String.format(Locale.ROOT,"%s:%.3f:%.3f",locale,21.234,67.890);
+    JSONObject data=new JSONObject().put(key,new JSONObject().put("name","Another Fixture City").put("time",System.currentTimeMillis()));
+    var prefs=context.getSharedPreferences("luma",0);prefs.edit().putBoolean("placeNames",true).putString("placeNameCache",data.toString()).commit();
+    assertEquals("Another Fixture City",LocationNames.resolve(context,21.234,67.890));
+    LocationNames.clear(context);assertFalse(prefs.contains("placeNameCache"));
+    assertNotEquals("Another Fixture City",LocationNames.resolve(context,21.234,67.890));
+    prefs.edit().putBoolean("placeNames",false).commit();assertEquals("",LocationNames.resolve(context,21.234,67.890));
+  }
+
 }
