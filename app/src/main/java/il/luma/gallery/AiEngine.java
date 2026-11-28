@@ -133,6 +133,10 @@ final class AiEngine implements AutoCloseable {
   }
 
   java.util.List<Bitmap> alignedFaces(Bitmap bitmap) throws Exception {
+    return alignedFaces(bitmap,null);
+  }
+
+  java.util.List<Bitmap> alignedFaces(Bitmap bitmap, java.util.List<Bitmap> covers) throws Exception {
     if (faces == null)
       faces =
           FaceDetector.createFromOptions(
@@ -173,6 +177,15 @@ final class AiEngine implements AutoCloseable {
           if (rect.width() < 12 || rect.height() < 12) continue;
           canvas.drawBitmap(
               bitmap, rect, new Rect(0, 0, 112, 112), new Paint(Paint.FILTER_BITMAP_FLAG));
+        }
+        if(covers != null) {
+          RectF box = detection.boundingBox();
+          int left=Math.max(0,(int)(box.left-box.width()*.3f));
+          int top=Math.max(0,(int)(box.top-box.height()*.4f));
+          int right=Math.min(bitmap.getWidth(),(int)(box.right+box.width()*.3f));
+          int bottom=Math.min(bitmap.getHeight(),(int)(box.bottom+box.height()*.3f));
+          Bitmap crop = right>left && bottom>top ? Bitmap.createBitmap(bitmap,left,top,right-left,bottom-top) : aligned;
+          covers.add(crop.copy(Bitmap.Config.ARGB_8888,false));
         }
         result.add(aligned);
       }

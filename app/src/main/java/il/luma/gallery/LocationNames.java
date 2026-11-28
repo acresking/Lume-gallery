@@ -11,11 +11,11 @@ final class LocationNames {
   private static final Map<String, String> cache = new ConcurrentHashMap<>();
   private static final ThreadPoolExecutor worker =
       new ThreadPoolExecutor(
-          1,
-          1,
+          2,
+          2,
           30,
           TimeUnit.SECONDS,
-          new ArrayBlockingQueue<>(8),
+          new ArrayBlockingQueue<>(64),
           r -> {
             Thread t = new Thread(r, "Lume-place-name");
             t.setDaemon(true);
@@ -34,13 +34,20 @@ final class LocationNames {
   }
 
   static String resolve(Context context, double lat, double lon) {
-    if (!context.getSharedPreferences("luma", 0).getBoolean("placeNames", true)
-        || !valid(lat, lon)
-        || !Geocoder.isPresent()) return "";
+    if (!context.getSharedPreferences("luma", 0).getBoolean("placeNames", true) || !valid(lat, lon)) return "";
     Locale locale = context.getResources().getConfiguration().getLocales().get(0);
-    String key = String.format(Locale.ROOT, "%s:%.4f:%.4f", locale.toLanguageTag(), lat, lon);
+    String key = String.format(Locale.ROOT, "%s:%.3f:%.3f", locale.toLanguageTag(), lat, lon);
     String previous = cache.get(key);
     if (previous != null) return previous;
+    try {
+      org.json.JSONObject saved = new org.json.JSONObject(PrivateData.read(context,"placeNameCache","{}"));
+      org.json.JSONObject entry = saved.optJSONObject(key);
+      if(entry!=null && System.currentTimeMillis()-entry.optLong("time")<90L*24*60*60*1000) {
+        String name=entry.optString("name");
+        if(!name.isBlank()){cache.put(key,name);return name;}
+      }
+    } catch (Exception ignored) {}
+    if (!Geocoder.isPresent()) return "";
     Future<String> task = null;
     try {
       Context app = context.getApplicationContext();
@@ -54,12 +61,22 @@ final class LocationNames {
       if (!result.isBlank()) {
         if (cache.size() > 200) cache.clear();
         cache.put(key, result);
+        persist(context,key,result);
       }
       return result;
     } catch (Exception error) {
       if (task != null) task.cancel(true);
       return "";
     }
+  }
+
+  private static synchronized void persist(Context c,String key,String name) {
+    try {
+      org.json.JSONObject values=new org.json.JSONObject(PrivateData.read(c,"placeNameCache","{}"));
+      values.put(key,new org.json.JSONObject().put("name",name).put("time",System.currentTimeMillis()));
+      while(values.length()>200){String oldest=null;long time=Long.MAX_VALUE;for(var it=values.keys();it.hasNext();){String k=it.next();long t=values.optJSONObject(k)==null?0:values.optJSONObject(k).optLong("time");if(t<time){time=t;oldest=k;}}if(oldest==null)break;values.remove(oldest);}
+      PrivateData.write(c,"placeNameCache",values.toString());
+    } catch (Exception ignored) {}
   }
 
   static boolean valid(double lat, double lon) {

@@ -2758,8 +2758,12 @@ public final class ModernActivity extends MainActivity {
         };
 
     Viewer(Media first) {
+      this(first, ModernActivity.this.filtered());
+    }
+
+    Viewer(Media first, java.util.List<Media> subset) {
       super(ModernActivity.this, android.R.style.Theme_Material_NoActionBar);
-      pages = filtered();
+      pages = new ArrayList<>(subset);
       if (!pages.contains(first)) {
         pages.clear();
         pages.add(first);
@@ -3159,7 +3163,7 @@ public final class ModernActivity extends MainActivity {
       if (!matches) continue;
       try {
         String[] point = item.optString("id").replace("place:", "").split(",");
-        double lat = Double.parseDouble(point[0].trim()), lon = Double.parseDouble(point[1].trim());
+        double lat = item.has("latitude") ? item.optDouble("latitude") : Double.parseDouble(point[0].trim()), lon = item.has("longitude") ? item.optDouble("longitude") : Double.parseDouble(point[1].trim());
         if (!LocationNames.valid(lat, lon)) continue;
         openMap(lat, lon);
         mapSheet.loadLibrary();

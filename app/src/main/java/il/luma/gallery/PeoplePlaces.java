@@ -83,7 +83,7 @@ final class PeoplePlaces {
                               .edit()
                               .putString("personalAlbums", PrivateData.encrypt(current.toString()));
                       if (kind.equals("person")) {
-                        edit.remove("faceProfiles")
+                        edit.remove("faceProfiles").remove("faceSamples").remove("faceCoverQuality").remove("faceGroupingSchema")
                             .remove("peopleScanned")
                             .putBoolean("autoPeople", false);
                         PrivateData.clearCovers(a);
@@ -141,15 +141,17 @@ final class PeoplePlaces {
       if (kind.equals("person")) shape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
       cover.setBackground(shape);
       cover.setClipToOutline(true);
-      Bitmap faceCover = kind.equals("person") ? PrivateData.cover(a, item.optString("id")) : null;
-      if (faceCover != null) cover.setImageBitmap(faceCover);
-      else
-        cover.setImageDrawable(
-            new GalleryIcons(kind.equals("person") ? "people" : "place", a.accent));
+      cover.setImageDrawable(new GalleryIcons(kind.equals("person") ? "people" : "place",a.accent));
+      if(kind.equals("person")) {
+        String groupId=item.optString("id");cover.setTag(groupId);
+        a.thumbs.execute(()->{Bitmap faceCover=PrivateData.cover(a,groupId);a.runOnUiThread(()->{if(!a.destroyed && groupId.equals(cover.getTag()) && faceCover!=null)cover.setImageBitmap(faceCover);});});
+        cell.setContentDescription(name+" · "+count+" תמונות · לחיצה ארוכה לאיחוד קבוצות");
+        cell.setOnLongClickListener(v->{PeopleMerge.choose(a,groupId,()->drawGroups(c,kind,opened));return true;});
+      }
       cell.addView(cover, new LinearLayout.LayoutParams(a.dp(104), a.dp(104)));
       TextView title =
           a.label(
-              kind.equals("place") && name.startsWith("מקום ") ? "שם המקום אינו זמין עדיין" : name,
+              kind.equals("place") && name.startsWith("מקום ") ? "מיקום שמור · שם בטעינה" : name,
               15,
               a.ink,
               true);
@@ -164,11 +166,12 @@ final class PeoplePlaces {
                 String resolved =
                     LocationNames.resolve(
                         a,
-                        Double.parseDouble(point[0].trim()),
-                        Double.parseDouble(point[1].trim()));
+                        item.has("latitude") ? item.optDouble("latitude") : Double.parseDouble(point[0].trim()),
+                        item.has("longitude") ? item.optDouble("longitude") : Double.parseDouble(point[1].trim()));
                 a.runOnUiThread(
                     () -> {
-                      if (!a.destroyed && !resolved.isBlank() && name.startsWith("מקום ")) {
+                      if (!a.destroyed && name.startsWith("מקום ")) {
+                        if(resolved.isBlank()){title.setText("מיקום שמור · ללא שם כרגע");return;}
                         title.setText(resolved);
                         a.placeDisplayNames.put(name, resolved);
                       }

@@ -94,6 +94,11 @@ final class OrganizeEngine {
           }
         }
       }
+      FaceSamples samples = new FaceSamples(new JSONObject(PrivateData.read(context, "faceSamples", "{}")), vectors);
+      if(faces && prefs.getInt("faceGroupingSchema",0)<2) faceDone.clear();
+      if(places && prefs.getInt("placeGroupingSchema",0)<2) placeDone.clear();
+      Map<String,double[]> exactPlaces = new HashMap<>();
+      JSONObject coverQuality = new JSONObject(PrivateData.read(context,"faceCoverQuality","{}"));
       boolean changed = false;
       long now = System.currentTimeMillis();
       try (AiEngine detector = faces ? new AiEngine(context) : null;
@@ -116,19 +121,15 @@ final class OrganizeEngine {
             Bitmap bitmap = null;
             try {
               bitmap = MediaAccess.decode(context, m.uri, 1000);
-              for (Bitmap face : detector.alignedFaces(bitmap)) {
+              Set<String> matchedInPhoto = new HashSet<>();
+              ArrayList<Bitmap> faceCovers = new ArrayList<>();
+              int faceIndex=0;
+              for (Bitmap face : detector.alignedFaces(bitmap,faceCovers)) {
+                Bitmap cover=faceCovers.get(faceIndex++);
                 try {
-                  if (cancel.get()) break;
+                  if (cancel.get()) continue;
                   float[] vector = engine.faceVector(face);
-                  String match = null;
-                  double best = prefs.getFloat("faceSimilarity", .55f);
-                  for (var entry : vectors.entrySet()) {
-                    double score = AiIndex.cosine(vector, entry.getValue());
-                    if (score > best) {
-                      best = score;
-                      match = entry.getKey();
-                    }
-                  }
+                  String match = samples.match(vector, prefs.getFloat("faceSimilarity", .55f), matchedInPhoto);
                   if (match == null) {
                     match = UUID.randomUUID().toString();
                     int number = vectors.size() + 1;
@@ -139,12 +140,21 @@ final class OrganizeEngine {
                     members.put(match, new LinkedHashSet<>());
                     names.put(match, name);
                   }
-                  if (!new File(new File(context.getFilesDir(), "people-covers"), match + ".enc")
-                      .isFile()) PrivateData.cover(context, match, face);
+                  int quality=Math.min(cover.getWidth(),cover.getHeight());
+                  if (!new File(new File(context.getFilesDir(), "people-covers"), match + ".enc").isFile()
+                      || quality>coverQuality.optInt(match,0)) {
+                    Bitmap preview=PhotoRecipe.sampled(cover,256);
+                    PrivateData.cover(context,match,preview);
+                    coverQuality.put(match,quality);
+                    if(preview!=cover)preview.recycle();
+                  }
+                  samples.add(match, vector);
+                  matchedInPhoto.add(match);
                   members.get(match).add(m.uri.toString());
                   result.faces++;
                 } finally {
                   if (!face.isRecycled()) face.recycle();
+                  if (!cover.isRecycled()) cover.recycle();
                 }
               }
               if (!cancel.get()) {
@@ -165,7 +175,8 @@ final class OrganizeEngine {
               if (stream == null) throw new IOException("קריאת המדיה נכשלה");
               double[] gps = new ExifInterface(stream).getLatLong();
               if (gps != null) {
-                String id = String.format(Locale.ROOT, "%.1f, %.1f", gps[0], gps[1]);
+                String id = PlaceCluster.key(gps[0], gps[1]);
+                exactPlaces.putIfAbsent(id, gps.clone());
                 locations.computeIfAbsent(id, k -> new LinkedHashSet<>()).add(m.uri.toString());
                 result.places++;
               }
@@ -255,6 +266,8 @@ final class OrganizeEngine {
                           .put("items", new JSONArray());
                   current.put(g);
                 }
+                double[] point = exactPlaces.get(entry.getKey());
+                if(point != null) g.put("latitude",point[0]).put("longitude",point[1]);
                 merge(g, entry.getValue());
               }
               for (int i = current.length() - 1; i >= 0; i--) {
@@ -269,6 +282,7 @@ final class OrganizeEngine {
                   String id = g.optString("id");
                   current.remove(i);
                   nextProfiles.remove(id);
+                  coverQuality.remove(id);
                   if (id.matches("[a-zA-Z0-9-]{1,80}"))
                     new File(new File(context.getFilesDir(), "people-covers"), id + ".enc")
                         .delete();
@@ -276,10 +290,16 @@ final class OrganizeEngine {
               }
               for (String id : vectors.keySet())
                 if (find(current, id) == null) nextProfiles.remove(id);
+              Set<String> retainedProfiles = new HashSet<>(vectors.keySet());
+              retainedProfiles.removeIf(id -> !nextProfiles.has(id));
               if (!prefs
                   .edit()
                   .putString("personalAlbums", PrivateData.encrypt(current.toString()))
                   .putString("faceProfiles", PrivateData.encrypt(nextProfiles.toString()))
+                  .putString("faceCoverQuality", PrivateData.encrypt(coverQuality.toString()))
+                  .putString("faceSamples", PrivateData.encrypt(samples.json(retainedProfiles).toString()))
+                  .putInt("faceGroupingSchema", faces ? 2 : prefs.getInt("faceGroupingSchema",0))
+                  .putInt("placeGroupingSchema", places ? 2 : prefs.getInt("placeGroupingSchema",0))
                   .putStringSet("peopleScanned", faceDone)
                   .putStringSet("placesScanned", placeDone)
                   .putString("organizeRetries", retries.toString())
