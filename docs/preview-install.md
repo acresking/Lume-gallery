@@ -1,0 +1,5 @@
+# Separate preview installation
+
+The preview build uses application ID il.luma.gallery.preview and launcher label Lume Gallery Preview. It is signed with a development certificate rather than the original official key, and installs alongside the existing application. Do not uninstall the existing gallery to install it. Existing private vault/settings/models are not migrated or modified. Grant media access and explicitly install the local AI bundle in this separate app to test automatic people grouping.
+
+The trusted same-repository PR workflow publishes a GitHub prerelease only after checks and preview lint/build succeed. It verifies the preview application ID, version, non-debuggable manifest, APK signature and 16KB ZIP alignment. Signature and SHA-256 files accompany the APK. A prerelease does not replace the latest stable release link. The development certificate is not promised for future updates, so keep the original gallery for your existing private vault/data. This is not an official-key update of v15.

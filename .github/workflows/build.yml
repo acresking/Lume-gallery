@@ -39,3 +39,61 @@ jobs:
           name: LumeGallery-development-debug
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
+
+  preview:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/people-places-20261128' && github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'acresking'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build separate preview APK
+        run: ./gradlew assemblePreview lintPreview --no-daemon
+      - name: Verify preview identity and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p distribution
+          cp app/build/outputs/apk/preview/app-preview.apk distribution/LumeGallery-v16.0.0-preview.apk
+          tools_dir="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          tools_dir="$(dirname "$tools_dir")"
+          "$tools_dir/apksigner" verify --verbose --print-certs distribution/LumeGallery-v16.0.0-preview.apk > distribution/LumeGallery-preview-signature.txt
+          "$tools_dir/zipalign" -c -P 16 4 distribution/LumeGallery-v16.0.0-preview.apk
+          "$tools_dir/aapt" dump badging distribution/LumeGallery-v16.0.0-preview.apk > distribution/LumeGallery-preview-package.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path("distribution/LumeGallery-preview-package.txt").read_text()
+          assert "name='il.luma.gallery.preview'" in text
+          assert "versionCode='16'" in text and "versionName='16.0.0-preview'" in text
+          assert "application-debuggable" not in text
+          PY
+          cd distribution
+          sha256sum LumeGallery-v16.0.0-preview.apk > LumeGallery-v16.0.0-preview.apk.sha256
+      - name: Publish installable preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RELEASE_TAG: lume-preview-16.0.0-${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > distribution/NOTES.md <<'NOTES'
+          Installable preview of the people/place improvements.
+          This installs as a SEPARATE app: il.luma.gallery.preview (Lume Gallery Preview).
+          It does not replace the existing gallery or migrate its vault, settings or AI models.
+          Grant media access and install the local AI bundle in the preview to test people grouping.
+          Signed with a preview development certificate, NOT the official update key.
+          Do not uninstall the existing Lume Gallery to install this APK.
+          Local AI accuracy and device-specific behavior still need phone testing.
+          NOTES
+          gh release create "$RELEASE_TAG" distribution/LumeGallery-v16.0.0-preview.apk distribution/LumeGallery-v16.0.0-preview.apk.sha256 distribution/LumeGallery-preview-signature.txt distribution/LumeGallery-preview-package.txt --repo "$GITHUB_REPOSITORY" --target "$HEAD_SHA" --title "Lume Gallery 16 preview — separate install" --notes-file distribution/NOTES.md --prerelease --latest=false

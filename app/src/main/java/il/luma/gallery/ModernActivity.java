@@ -466,7 +466,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 15.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה " + installedVersion() + " · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -3143,6 +3143,11 @@ public final class ModernActivity extends MainActivity {
     if (mapSheet != null) mapSheet.dismiss();
     mapSheet = new PlacesMap(this, lat, lon);
     mapSheet.show();
+  }
+
+  String installedVersion() {
+    try { return getPackageManager().getPackageInfo(getPackageName(),0).versionName; }
+    catch(Exception ignored) { return "16.0.0"; }
   }
 
   void openPlacesMap() {
