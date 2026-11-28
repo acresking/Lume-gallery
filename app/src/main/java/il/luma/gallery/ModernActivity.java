@@ -466,7 +466,7 @@ public final class ModernActivity extends MainActivity {
     nameLp.topMargin = dp(16);
     content.addView(name, nameLp);
     content.addView(
-        text("הגלריה שלך. האור שלך.\nגרסה 15.0.0 · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
+        text("הגלריה שלך. האור שלך.\nגרסה " + installedVersion() + " · עיבוד מקומי ועריכה ששומרת את המקור.", 14));
     action(
         content,
         "Lume AI · כלים חכמים",
@@ -2758,8 +2758,12 @@ public final class ModernActivity extends MainActivity {
         };
 
     Viewer(Media first) {
+      this(first, ModernActivity.this.filtered());
+    }
+
+    Viewer(Media first, java.util.List<Media> subset) {
       super(ModernActivity.this, android.R.style.Theme_Material_NoActionBar);
-      pages = filtered();
+      pages = new ArrayList<>(subset);
       if (!pages.contains(first)) {
         pages.clear();
         pages.add(first);
@@ -3141,6 +3145,11 @@ public final class ModernActivity extends MainActivity {
     mapSheet.show();
   }
 
+  String installedVersion() {
+    try { return getPackageManager().getPackageInfo(getPackageName(),0).versionName; }
+    catch(Exception ignored) { return "16.0.0"; }
+  }
+
   void openPlacesMap() {
     java.util.Set<String> visible = new java.util.HashSet<>();
     for (Media media : filtered()) visible.add(media.uri.toString());
@@ -3159,7 +3168,7 @@ public final class ModernActivity extends MainActivity {
       if (!matches) continue;
       try {
         String[] point = item.optString("id").replace("place:", "").split(",");
-        double lat = Double.parseDouble(point[0].trim()), lon = Double.parseDouble(point[1].trim());
+        double lat = item.has("latitude") ? item.optDouble("latitude") : Double.parseDouble(point[0].trim()), lon = item.has("longitude") ? item.optDouble("longitude") : Double.parseDouble(point[1].trim());
         if (!LocationNames.valid(lat, lon)) continue;
         openMap(lat, lon);
         mapSheet.loadLibrary();
